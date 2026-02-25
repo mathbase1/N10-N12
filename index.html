@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -148,6 +149,22 @@
   .feedback.bad{background:#fef2f2;border-color:rgba(220,38,38,.22);color:#7f1d1d}
 
   .mathwrap{display:inline-block;vertical-align:middle}
+  .mathwrap math{font-size:calc(1em + 5px);}
+
+  /* -------------------- N10: Work-out layout (text line then MathML line) -------------------- */
+  .wo-block{margin:.15rem 0;}
+  .wo-text{margin:.12rem 0;}
+  .wo-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:.75rem;
+    flex-wrap:wrap;
+    margin:.2rem 0;
+  }
+  .wo-math{display:block;}
+  .wo-ans{display:flex;justify-content:flex-end;align-items:center;}
+
 
   /* -------------------- drag ordering widget -------------------- */
   .drag-order{
@@ -241,6 +258,29 @@
   .sfhint{
     color:var(--muted);
     font-size:1rem;
+  }
+
+
+  /* -------------------- tables (used in N10 4–5 mark questions) -------------------- */
+  .valtable{
+    border-collapse:collapse;
+    margin:.55rem 0 .75rem 0;
+    width:100%;
+    max-width:520px;
+    font-size:1rem;
+  }
+  .valtable th, .valtable td{
+    border:1px solid var(--border);
+    padding:.35rem .55rem;
+    text-align:left;
+  }
+  .valtable th{
+    background:#f1f5f9;
+    font-weight:900;
+  }
+  .valtable th:last-child, .valtable td:last-child{
+    text-align:right;
+    font-variant-numeric: tabular-nums;
   }
 
   @media (max-width:560px){
@@ -458,6 +498,35 @@ function msup(base, exp){
   return `<span class="mathwrap"><math xmlns="${MNS}" display="inline"><msup>${baseNode}<mn>${exp}</mn></msup></math></span>`;
 }
 
+function mEsc(s){
+  return String(s ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;");
+}
+function mml(inner){
+  return `<span class="mathwrap"><math xmlns="${MNS}" display="inline">${inner}</math></span>`;
+}
+function mmn(v){ return `<mn>${mEsc(v)}</mn>`; }
+function mmi(v){ return `<mi>${mEsc(v)}</mi>`; }
+function mmo(v){
+  const esc = mEsc(v);
+  if(v==="×" || v==="÷"){
+    return `<mspace width="0.2em"/><mo>${esc}</mo><mspace width="0.2em"/>`;
+  }
+  return `<mo>${esc}</mo>`;
+}
+function mmt(v){ return `<mtext>${mEsc(v)}</mtext>`; }
+function mrowN(...nodes){ return `<mrow>${nodes.join("")}</mrow>`; }
+function mfencedN(inner){ return `<mrow><mo>(</mo>${inner}<mo>)</mo></mrow>`; }
+function msqrtN(inner){ return `<msqrt>${inner}</msqrt>`; }
+function mrootN(radicandInner, indexInner){ return `<mroot>${radicandInner}${indexInner}</mroot>`; }
+function msupN(baseNode, exp){
+  const eNode = Number.isFinite(+exp) ? mmn(exp) : mmi(exp);
+  return `<msup>${baseNode}${eNode}</msup>`;
+}
+
+
 // SECTION: Topic list / tab navigation
 // EDIT HERE: To add/remove topics or change the tab label, edit the TOPICS array below.
 // NOTE: Each `code` must have a corresponding `case "CODE"` in the buildQuestion() switch.
@@ -671,7 +740,7 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
   const Q = (parts)=>{
     // For 3–5 mark questions, randomly select ONE of three context variants
     // and prepend it to the prompt. (Maths stays identical; only the setting changes.)
-    if(marksTotal>=3){
+    if(marksTotal>=3 && topicCode!=="N10"){
       const leads = contextVariants(topicCode) || [];
       if(leads.length>=3){
         const lead = rng.choice(leads);
@@ -705,40 +774,1038 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
   switch(topicCode){
     /* SPLITMERGE:BUILDQUESTION-CASES-START */
     /* ===================== N10 BIDMAS ===================== */
+    
+    /* ===================== N10 BIDMAS (order of operations) ===================== */
     case "N10": {
-      const friendly = (min,max)=> rng.int(min,max);
-      if(marksTotal===1){
-        const a=friendly(2,15), b=friendly(2,15), c=friendly(2,9);
-        return Q([partInteger("n10_1", `Work out: <b>${a} + ${b} × ${c}</b>. <span class="endmark">[1]</span>`, 1, a + b*c)]);
-      }
-      if(marksTotal===2){
-        const a=friendly(2,15), b=friendly(2,15), c=friendly(2,9);
-        return Q([partInteger("n10_2", `Work out: <b>(${a} + ${b}) × ${c}</b>. <span class="endmark">[2]</span>`, 2, (a+b)*c)]);
-      }
-      if(marksTotal===3){
-        const a=friendly(2,9), b=friendly(2,9), c=friendly(2,12);
-        const ans = a*a + b*b - c;
-        return Q([partInteger("n10_3", `Work out: <b>${msup(a,2)} + ${msup(b,2)} − ${c}</b>. <span class="endmark">[3]</span>`, 3, ans)]);
-      }
-      if(marksTotal===4){
-        const a=friendly(2,12), b=friendly(2,12), c=friendly(2,12), d=friendly(2,12);
-        const ans = a + b*(c-d);
-        return Q([partInteger("n10_4", `Work out: <b>${a} + ${b} × (${c} − ${d})</b>. <span class="endmark">[4]</span>`, 4, ans)]);
-      }
-      // 5 marks: two expressions then compare
-      const a=friendly(2,9), b=friendly(2,9), c=friendly(2,9);
-      const d=friendly(2,9), e=friendly(2,9), f=friendly(2,9);
-      const v1 = (a+b)*c;
-      const v2 = d + e*f;
-      const cmp = v1>v2 ? 1 : (v2>v1 ? 2 : 0);
-      return Q([
-        partInteger("n10_5a", `Work out: <b>(${a} + ${b}) × ${c}</b>. <span class="endmark">[2]</span>`, 2, v1),
-        partInteger("n10_5b", `Work out: <b>${d} + ${e} × ${f}</b>. <span class="endmark">[2]</span>`, 2, v2),
-        partInteger("n10_5c", `Write <b>1</b> if the first answer is larger, <b>2</b> if the second is larger, or <b>0</b> if equal. <span class="endmark">[1]</span>`, 1, cmp),
-      ]);
-    }
+      // N10: Order of operations (BIDMAS)
+      // Rules:
+      // - Non-calculator: whole numbers only (and answers are whole numbers)
+      // - Calculator: decimals included; student rounds to 2 d.p.
+      // - 4–5 mark questions use tables and parts (a) and (b)
+      // Brackets: aim for an equal mix of questions with brackets vs without brackets.
+      const DP = 2;
 
-    /* ===================== N11 Inverse operations / missing number ===================== */
+      const roundAns = (x)=> isCalc ? roundTo(x, DP) : x;
+
+      const dec = (min, max, dp)=>{
+        const sc = 10**dp;
+        const lo = Math.ceil(min*sc);
+        const hi = Math.floor(max*sc);
+        let n = lo;
+        for(let t=0;t<250;t++){
+          n = rng.int(lo, hi);
+          // avoid whole numbers if we can (still OK if it happens)
+          if(n % sc !== 0) break;
+        }
+        const v = n / sc;
+        return {v, s: v.toFixed(dp)};
+      };
+
+      const squareFromRoot = (minRoot, maxRoot, dpRoot=1)=>{
+        // choose root with dpRoot dp, and return an EXACT square (to 2*dpRoot dp)
+        const sc = 10**dpRoot;
+        const rInt = rng.int(Math.ceil(minRoot*sc), Math.floor(maxRoot*sc));
+        const root = rInt / sc;
+        const rad = (rInt*rInt) / (sc*sc);
+        return {root, rootStr: root.toFixed(dpRoot), rad, radStr: rad.toFixed(dpRoot*2)};
+      };
+
+      const cubeFromRoot = (minRoot, maxRoot, dpRoot=1)=>{
+        // choose root with dpRoot dp, and return an EXACT cube (to 3*dpRoot dp)
+        const sc = 10**dpRoot;
+        const rInt = rng.int(Math.ceil(minRoot*sc), Math.floor(maxRoot*sc));
+        const root = rInt / sc;
+        const rad = (rInt*rInt*rInt) / (sc*sc*sc);
+        return {root, rootStr: root.toFixed(dpRoot), rad, radStr: rad.toFixed(dpRoot*3)};
+      };
+
+      const coin = ()=> rng.float() < 0.5;
+
+      const workOutLine = (prefix, exprHtml, marks)=>{
+        const p = (prefix ?? "").trim();
+        const pfx = p ? `<b>${p}</b> ` : "";
+        const mark = `<span class="endmark">[${marks}]</span>`;
+
+        const line1 = isCalc
+          ? `<div class="wo-text">${pfx}Work out:</div>`
+          : `<div class="wo-text">${pfx}Work out: ${mark}</div>`;
+
+        const line3 = isCalc
+          ? `<div class="wo-text">Give your answer to 2 decimal places. ${mark}</div>`
+          : ``;
+
+        return `
+          <div class="wo-block">
+            ${line1}
+            <div class="wo-row">
+              <div class="wo-math">${exprHtml}</div>
+              <div class="wo-ans">{{INPUT}}</div>
+            </div>
+            ${line3}
+          </div>
+        `;
+      };
+
+      const makePart = (id, textHtml, marks, value)=>{
+        if(isCalc){
+          const p = partNumber(id, textHtml, marks, roundTo(value, DP));
+          p.answer.dp = DP;
+          return p;
+        }
+        return partInteger(id, textHtml, marks, value);
+      };
+
+      const tableHtml = (rows)=>{
+        const body = rows.map(r=>`<tr><td>${r.name}</td><td>${r.val}</td></tr>`).join("");
+        return `
+          <table class="valtable" aria-label="values table">
+            <thead><tr><th>Value name</th><th>Value</th></tr></thead>
+            <tbody>${body}</tbody>
+          </table>
+        `;
+      };
+
+      /* -------------------- 1 MARK (2 operations) -------------------- */
+      if(marksTotal===1){
+        const scenario = rng.int(1,4);
+
+        // Scenario 1 (money): A − b×c  (NO brackets)
+        if(scenario===1){
+          if(!isCalc){
+            const b = rng.int(2,12);
+            const c = rng.int(2,9);
+            const A = b*c + rng.int(5,60);
+
+            const expr = mml(mrowN(mmn(A), mmo("−"), mmn(b), mmo("×"), mmn(c)));
+            const ans = A - b*c;
+            return Q([makePart("n10_1", workOutLine("", expr, 1), 1, ans)]);
+          } else {
+            const b = dec(2,12,2);
+            const c = dec(2,9,1);
+            const extra = dec(5,60,1);
+            const A = roundTo(b.v*c.v + extra.v, 1);
+            const AStr = A.toFixed(1);
+
+            const expr = mml(mrowN(mmn(AStr), mmo("−"), mmn(b.s), mmo("×"), mmn(c.s)));
+            const ans = A - b.v*c.v;
+            return Q([makePart("n10_1", workOutLine("", expr, 1), 1, ans)]);
+          }
+        }
+
+        // Scenario 2: −A + b×c  (NO brackets)
+        if(scenario===2){
+          if(!isCalc){
+            const A = rng.int(3,15);
+            const b = rng.int(2,9);
+            const c = rng.int(2,9);
+
+            const expr = mml(mrowN(mmo("−"), mmn(A), mmo("+"), mmn(b), mmo("×"), mmn(c)));
+            const ans = -A + b*c;
+            return Q([makePart("n10_2", workOutLine("", expr, 1), 1, ans)]);
+          } else {
+            const A = dec(3,18,1);
+            const b = dec(2,9,2);
+            const c = dec(2,9,1);
+
+            const expr = mml(mrowN(mmo("−"), mmn(A.s), mmo("+"), mmn(b.s), mmo("×"), mmn(c.s)));
+            const ans = -A.v + b.v*c.v;
+            return Q([makePart("n10_2", workOutLine("", expr, 1), 1, ans)]);
+          }
+        }
+
+        // Scenario 3: d×(e−f)  (WITH brackets)
+        if(scenario===3){
+          if(!isCalc){
+            const d = rng.int(2,12);
+            const f = rng.int(3,18);
+            const e = f + rng.int(2,20);
+
+            const exprA = mml(mrowN(mmn(d), mmo("×"), mfencedN(mrowN(mmn(e), mmo("−"), mmn(f)))));
+            const exprB = mml(mrowN(mfencedN(mrowN(mmn(e), mmo("−"), mmn(f))), mmo("×"), mmn(d)));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = d*(e-f);
+            return Q([makePart("n10_3", workOutLine("", expr, 1), 1, ans)]);
+          } else {
+            const d = dec(2,12,1);
+            const e = dec(10,30,1);
+            const f = dec(2, e.v-1, 2);
+
+            const exprA = mml(mrowN(mmn(d.s), mmo("×"), mfencedN(mrowN(mmn(e.s), mmo("−"), mmn(f.s)))));
+            const exprB = mml(mrowN(mfencedN(mrowN(mmn(e.s), mmo("−"), mmn(f.s))), mmo("×"), mmn(d.s)));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = d.v*(e.v - f.v);
+            return Q([makePart("n10_3", workOutLine("", expr, 1), 1, ans)]);
+          }
+        }
+
+        // Scenario 4 (extra brackets): (x + 5) / 2  (WITH brackets)
+        if(scenario===4){
+          if(!isCalc){
+            let x = rng.int(1,45);
+            // make (x+5)/2 an integer
+            if(x % 2 === 0) x += 1;
+            if(x > 45) x -= 2;
+
+            const expr = mml(`<mfrac>${mfencedN(mrowN(mmn(x), mmo("+"), mmn(5)))}${mmn(2)}</mfrac>`);
+            const ans = (x + 5) / 2;
+            return Q([makePart("n10_16", workOutLine("", expr, 1), 1, ans)]);
+          } else {
+            const x = dec(10, 90, 2);
+            const expr = mml(`<mfrac>${mfencedN(mrowN(mmn(x.s), mmo("+"), mmn("5.0")))}${mmn("2.0")}</mfrac>`);
+            const ans = (x.v + 5.0) / 2.0;
+            return Q([makePart("n10_16", workOutLine("", expr, 1), 1, ans)]);
+          }
+        }
+      }
+
+      /* -------------------- 2 MARK (3 operations) -------------------- */
+      if(marksTotal===2){
+        const scenario = rng.int(1,3);
+
+        // Scenario 1 (money): (p−q)×r + s  (WITH brackets)
+        if(scenario===1){
+          if(!isCalc){
+            const p = rng.int(12,30);
+            const q = rng.int(2, Math.min(18,p-1));
+            const r = rng.int(2,8);
+            const s = rng.int(2,15);
+
+            const pq = mfencedN(mrowN(mmn(p), mmo("−"), mmn(q)));
+            const exprA = mml(mrowN(pq, mmo("×"), mmn(r), mmo("+"), mmn(s)));
+            const exprB = mml(mrowN(mmn(s), mmo("+"), pq, mmo("×"), mmn(r)));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = (p - q)*r + s;
+            return Q([makePart("n10_4", workOutLine("", expr, 2), 2, ans)]);
+          } else {
+            const p = dec(12,50,1);
+            const q = dec(2, Math.max(3, Math.min(18, p.v-0.5)), 2);
+            const r = dec(2,8,1);
+            const s = dec(2,20,2);
+
+            const pq = mfencedN(mrowN(mmn(p.s), mmo("−"), mmn(q.s)));
+            const exprA = mml(mrowN(pq, mmo("×"), mmn(r.s), mmo("+"), mmn(s.s)));
+            const exprB = mml(mrowN(mmn(s.s), mmo("+"), pq, mmo("×"), mmn(r.s)));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = (p.v - q.v)*r.v + s.v;
+            return Q([makePart("n10_4", workOutLine("", expr, 2), 2, ans)]);
+          }
+        }
+
+        // Scenario 2: x² − a×b  (MIX: brackets around product 50% of the time)
+        if(scenario===2){
+          const withBrackets = coin();
+          if(!isCalc){
+            const x = rng.int(2,15);
+            const a = rng.int(2,12);
+            const b = rng.int(2,12);
+
+            const xSq = msupN(mmn(x), 2);
+            const prod = mrowN(mmn(a), mmo("×"), mmn(b));
+            const right = withBrackets ? mfencedN(prod) : prod;
+
+            const expr = mml(mrowN(xSq, mmo("−"), right));
+            const ans = x*x - a*b;
+            return Q([makePart("n10_5", workOutLine("", expr, 2), 2, ans)]);
+          } else {
+            const x = dec(2,15,1);
+            const a = dec(2,15,2);
+            const b = dec(2,15,1);
+
+            const xSq = msupN(mmn(x.s), 2);
+            const prod = mrowN(mmn(a.s), mmo("×"), mmn(b.s));
+            const right = withBrackets ? mfencedN(prod) : prod;
+
+            const expr = mml(mrowN(xSq, mmo("−"), right));
+            const ans = (x.v*x.v) - (a.v*b.v);
+            return Q([makePart("n10_5", workOutLine("", expr, 2), 2, ans)]);
+          }
+        }
+
+        // Scenario 3: p÷q + r×s  (NO brackets)
+        if(scenario===3){
+          if(!isCalc){
+            const q = rng.int(2,12);
+            const quot = rng.int(3,20);
+            const p = q * quot;
+            const r = rng.int(2,12);
+            const s = rng.int(2,12);
+
+            const left = mrowN(mmn(p), mmo("÷"), mmn(q));
+            const right = mrowN(mmn(r), mmo("×"), mmn(s));
+
+            const exprA = mml(mrowN(left, mmo("+"), right));
+            const exprB = mml(mrowN(right, mmo("+"), left));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = (p / q) + r*s;
+            return Q([makePart("n10_6", workOutLine("", expr, 2), 2, ans)]);
+          } else {
+            const q = dec(3,12,1);
+            const quot = dec(5,25,1);
+            const pVal = q.v * quot.v;
+            const pStr = pVal.toFixed(2);
+            const r = dec(2,12,2);
+            const s = dec(2,12,1);
+
+            const left = mrowN(mmn(pStr), mmo("÷"), mmn(q.s));
+            const right = mrowN(mmn(r.s), mmo("×"), mmn(s.s));
+
+            const exprA = mml(mrowN(left, mmo("+"), right));
+            const exprB = mml(mrowN(right, mmo("+"), left));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = (pVal / q.v) + (r.v * s.v);
+            return Q([makePart("n10_6", workOutLine("", expr, 2), 2, ans)]);
+          }
+        }
+      }
+
+      /* -------------------- 3 MARK (4 operations) -------------------- */
+      if(marksTotal===3){
+        const scenario = rng.int(1,3);
+
+        // Scenario 1 (money): A − b×c + d÷e  (MIX brackets 50% of the time)
+        if(scenario===1){
+          const withBrackets = coin();
+          if(!isCalc){
+            const b = rng.int(2,12);
+            const c = rng.int(2,8);
+            const e = rng.int(2,10);
+            const q = rng.int(2,12);
+            const d = e*q;
+            const A = b*c + rng.int(10,80);
+
+            const bc = mrowN(mmn(b), mmo("×"), mmn(c));
+            const bcNode = withBrackets ? mfencedN(bc) : bc;
+
+            const de = mrowN(mmn(d), mmo("÷"), mmn(e));
+
+            const exprA = mml(mrowN(mmn(A), mmo("−"), bcNode, mmo("+"), de));
+            const exprB = mml(mrowN(mmn(A), mmo("+"), de, mmo("−"), bcNode));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = A - (b*c) + (d/e);
+            return Q([makePart("n10_7", workOutLine("", expr, 3), 3, ans)]);
+          } else {
+            const A = dec(40,120,1);
+            const b = dec(2,12,2);
+            const c = dec(2,8,2);
+            const d = dec(10,40,1);
+            const e = dec(2,12,2);
+
+            const bc = mrowN(mmn(b.s), mmo("×"), mmn(c.s));
+            const bcNode = withBrackets ? mfencedN(bc) : bc;
+
+            const de = mrowN(mmn(d.s), mmo("÷"), mmn(e.s));
+
+            const exprA = mml(mrowN(mmn(A.s), mmo("−"), bcNode, mmo("+"), de));
+            const exprB = mml(mrowN(mmn(A.s), mmo("+"), de, mmo("−"), bcNode));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = A.v - (b.v*c.v) + (d.v/e.v);
+            return Q([makePart("n10_7", workOutLine("", expr, 3), 3, ans)]);
+          }
+        }
+
+        // Scenario 2: √rad + base²×mult − sub  (MIX brackets 50% of the time)
+        if(scenario===2){
+          const withBrackets = coin();
+          if(!isCalc){
+            const squares = [16,25,36,49,64,81,100,121,144,169,196,225];
+            const rad = rng.choice(squares);
+            const base = rng.int(2,15);
+            const mult = rng.int(2,6);
+            const sub = rng.int(2,20);
+
+            const root = msqrtN(mmn(rad));
+            const baseSq = msupN(mmn(base), 2);
+
+            const prod = mrowN(baseSq, mmo("×"), mmn(mult));
+            const prodNode = withBrackets ? mfencedN(prod) : prod;
+
+            const exprA = mml(mrowN(root, mmo("+"), prodNode, mmo("−"), mmn(sub)));
+            const exprB = mml(mrowN(prodNode, mmo("+"), root, mmo("−"), mmn(sub)));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = Math.sqrt(rad) + (base*base)*mult - sub;
+            return Q([makePart("n10_8", workOutLine("", expr, 3), 3, ans)]);
+          } else {
+            const sq = squareFromRoot(6, 14, 1); // e.g. 9.2^2 = 84.64
+            const base = dec(2,15,1);
+            const mult = dec(2,6,1);
+            const sub = dec(2,20,1);
+
+            const root = msqrtN(mmn(sq.radStr));
+            const baseSq = msupN(mmn(base.s), 2);
+
+            const prod = mrowN(baseSq, mmo("×"), mmn(mult.s));
+            const prodNode = withBrackets ? mfencedN(prod) : prod;
+
+            const exprA = mml(mrowN(root, mmo("+"), prodNode, mmo("−"), mmn(sub.s)));
+            const exprB = mml(mrowN(prodNode, mmo("+"), root, mmo("−"), mmn(sub.s)));
+            const expr = rng.choice([exprA, exprB]);
+
+            const ans = sq.root + (base.v*base.v)*mult.v - sub.v;
+            return Q([makePart("n10_8", workOutLine("", expr, 3), 3, ans)]);
+          }
+        }
+
+        // Scenario 3 (includes cube root): (∛cube + add) ÷ div − sub
+        // MIX: 50% show with brackets + ÷, 50% show as a fraction (no brackets)
+        if(scenario===3){
+          const withBrackets = coin();
+          if(!isCalc){
+            const r = rng.int(2,8);
+            const cube = r*r*r;
+            const div = rng.int(2,6);
+
+            // Choose add so (r+add) is divisible by div and keep whole numbers
+            const kMin = Math.ceil((r+1)/div);
+            const k = rng.int(Math.max(kMin,4), 14);
+            const add = div*k - r;
+            const sub = rng.int(1, Math.max(1, k-1));
+
+            const cbrt = mrootN(mmn(cube), mmn(3));
+            const sum = mrowN(cbrt, mmo("+"), mmn(add));
+
+            const fracOrDiv = withBrackets
+              ? mrowN(mfencedN(sum), mmo("÷"), mmn(div))
+              : `<mfrac>${sum}${mmn(div)}</mfrac>`;
+
+            const expr = mml(mrowN(fracOrDiv, mmo("−"), mmn(sub)));
+            const ans = ((r + add) / div) - sub;
+            return Q([makePart("n10_9", workOutLine("", expr, 3), 3, ans)]);
+          } else {
+            const cb = cubeFromRoot(2.5, 6.5, 1); // e.g. 4.5^3 = 91.125
+            const add = dec(10,25,1);
+            const div = dec(2.5,6.5,2);
+            const sub = dec(2,10,2);
+
+            const cbrt = mrootN(mmn(cb.radStr), mmn(3));
+            const sum = mrowN(cbrt, mmo("+"), mmn(add.s));
+
+            const fracOrDiv = withBrackets
+              ? mrowN(mfencedN(sum), mmo("÷"), mmn(div.s))
+              : `<mfrac>${sum}${mmn(div.s)}</mfrac>`;
+
+            const expr = mml(mrowN(fracOrDiv, mmo("−"), mmn(sub.s)));
+            const ans = ((cb.root + add.v) / div.v) - sub.v;
+            return Q([makePart("n10_9", workOutLine("", expr, 3), 3, ans)]);
+          }
+        }
+      }
+
+      /* -------------------- 4 MARK (table + parts a/b) -------------------- */
+      if(marksTotal===4){
+        const scenario = rng.int(1,3);
+        const withBrackets = coin(); // question-level bracket toggle (aim for equal mix)
+
+        // Scenario 1 (money table): cinema charges
+        if(scenario===1){
+          if(!isCalc){
+            const ticket = rng.int(6,15);
+            const fee = rng.int(1,6);
+            const service = rng.int(2,6);
+
+            // Ensure (ticket*8 - voucher) is divisible by service for an integer answer
+            const maxK = Math.max(1, Math.floor((ticket*8 - 1) / service));
+            const k = rng.int(1, maxK);
+            const voucher = (ticket*8) - (k*service);
+
+            const rows = [
+              {name:"Ticket price", val:mml(mmn(ticket))},
+              {name:"Booking fee", val:mml(mmn(fee))},
+              {name:"Voucher discount", val:mml(mmn(voucher))},
+              {name:"Service charge", val:mml(mmn(service))}
+            ];
+
+            const intro =
+              `A cinema charges for tickets.<br>`+
+              `There are also extra charges and discounts.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            // (a) 2 ops: ticket price × 5 + booking fee
+            const aCore = mrowN(mmt("ticket price"), mmo("×"), mmn(5));
+            const aExpr = withBrackets
+              ? mml(mrowN(mfencedN(aCore), mmo("+"), mmt("booking fee")))
+              : mml(mrowN(aCore, mmo("+"), mmt("booking fee")));
+
+            // (b) 4 ops max: (ticket price × 8 − voucher discount) ÷ service charge
+            const numCore = mrowN(mmt("ticket price"), mmo("×"), mmn(8), mmo("−"), mmt("voucher discount"));
+            const bExpr = withBrackets
+              ? mml(mrowN(mfencedN(numCore), mmo("÷"), mmt("service charge")))
+              : mml(`<mfrac>${numCore}${mmt("service charge")}</mfrac>`);
+
+            const aAns = ticket*5 + fee;
+            const bAns = ((ticket*8) - voucher) / service;
+
+            return Q([
+              makePart("n10_10a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
+              makePart("n10_10b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          } else {
+            const ticket = dec(6,15,2);
+            const fee = dec(1,6,2);
+            const service = dec(2,6,2);
+
+            // keep voucher smaller than ticket*8 so the numerator stays positive
+            const maxVoucher = Math.max(0.5, ticket.v*8 - 0.5);
+            const voucher = dec(0.5, Math.min(15, maxVoucher), 2);
+
+            const rows = [
+              {name:"Ticket price", val:mml(mmn(ticket.s))},
+              {name:"Booking fee", val:mml(mmn(fee.s))},
+              {name:"Voucher discount", val:mml(mmn(voucher.s))},
+              {name:"Service charge", val:mml(mmn(service.s))}
+            ];
+
+            const intro =
+              `A cinema charges for tickets.<br>`+
+              `There are also extra charges and discounts.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            const aCore = mrowN(mmt("ticket price"), mmo("×"), mmn(5));
+            const aExpr = withBrackets
+              ? mml(mrowN(mfencedN(aCore), mmo("+"), mmt("booking fee")))
+              : mml(mrowN(aCore, mmo("+"), mmt("booking fee")));
+
+            const numCore = mrowN(mmt("ticket price"), mmo("×"), mmn(8), mmo("−"), mmt("voucher discount"));
+            const bExpr = withBrackets
+              ? mml(mrowN(mfencedN(numCore), mmo("÷"), mmt("service charge")))
+              : mml(`<mfrac>${numCore}${mmt("service charge")}</mfrac>`);
+
+            const aAns = ticket.v*5 + fee.v;
+            const bAns = ((ticket.v*8) - voucher.v) / service.v;
+
+            return Q([
+              makePart("n10_10a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
+              makePart("n10_10b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          }
+        }
+
+        // Scenario 2 (table): coach company times
+        // NOTE: Avoids sums inside square roots and avoids part (b) reusing part (a).
+        if(scenario===2){
+          if(!isCalc){
+            // Choose Section B and stop time so Section B × stop time is a perfect square.
+            const root = rng.int(4,15);
+            const square = root*root;
+
+            // Pick a divisor for Section B
+            const divisors = [];
+            for(let d=2; d<=square; d++){
+              if(square % d === 0) divisors.push(d);
+            }
+            const secB = rng.choice(divisors);
+            const stop = square / secB;
+
+            const secA = rng.int(10,30);
+            const delay = rng.int(2,12);
+
+            const rows = [
+              {name:"Section A", val:mml(mmn(secA))},
+              {name:"Section B", val:mml(mmn(secB))},
+              {name:"Stop time", val:mml(mmn(stop))},
+              {name:"Delay", val:mml(mmn(delay))}
+            ];
+
+            const intro =
+              `A coach company records times for parts of a route.<br>`+
+              `A delay can be added.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            // (a) [1] 2 ops
+            // Bracketless: Section B × delay − stop time
+            // Bracketed:   Section B × (delay − stop time)
+            const aExpr = withBrackets
+              ? mml(mrowN(mmt("Section B"), mmo("×"), mfencedN(mrowN(mmt("delay"), mmo("−"), mmt("stop time")))))
+              : mml(mrowN(mmt("Section B"), mmo("×"), mmt("delay"), mmo("−"), mmt("stop time")));
+
+            // (b) [3] 4 ops max (and does NOT reuse (a))
+            // Section A + √(Section B × stop time) − delay
+            const rootInner = mrowN(mmt("Section B"), mmo("×"), mmt("stop time"));
+            const sqrtTerm = msqrtN(rootInner);
+            const bCore = mrowN(mmt("Section A"), mmo("+"), sqrtTerm, mmo("−"), mmt("delay"));
+            const bExpr = withBrackets
+              ? mml(mrowN(mfencedN(mrowN(mmt("Section A"), mmo("+"), sqrtTerm)), mmo("−"), mmt("delay")))
+              : mml(bCore);
+
+            const aAns = withBrackets
+              ? (secB * (delay - stop))
+              : (secB * delay - stop);
+
+            const bAns = secA + Math.sqrt(secB*stop) - delay;
+
+            return Q([
+              makePart("n10_11a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
+              makePart("n10_11b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          } else {
+            const secA = dec(12,30,2);
+            const secB = dec(6,20,2);
+            const stop = dec(2,12,2);
+            const delay = dec(2,12,2);
+
+            const rows = [
+              {name:"Section A", val:mml(mmn(secA.s))},
+              {name:"Section B", val:mml(mmn(secB.s))},
+              {name:"Stop time", val:mml(mmn(stop.s))},
+              {name:"Delay", val:mml(mmn(delay.s))}
+            ];
+
+            const intro =
+              `A coach company records times for parts of a route.<br>`+
+              `A delay can be added.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            const aExpr = withBrackets
+              ? mml(mrowN(mmt("Section B"), mmo("×"), mfencedN(mrowN(mmt("delay"), mmo("−"), mmt("stop time")))))
+              : mml(mrowN(mmt("Section B"), mmo("×"), mmt("delay"), mmo("−"), mmt("stop time")));
+
+            const rootInner = mrowN(mmt("Section B"), mmo("×"), mmt("stop time"));
+            const sqrtTerm = msqrtN(rootInner);
+            const bCore = mrowN(mmt("Section A"), mmo("+"), sqrtTerm, mmo("−"), mmt("delay"));
+            const bExpr = withBrackets
+              ? mml(mrowN(mfencedN(mrowN(mmt("Section A"), mmo("+"), sqrtTerm)), mmo("−"), mmt("delay")))
+              : mml(bCore);
+
+            const aAns = withBrackets
+              ? (secB.v * (delay.v - stop.v))
+              : (secB.v * delay.v - stop.v);
+
+            const bAns = secA.v + Math.sqrt(secB.v*stop.v) - delay.v;
+
+            return Q([
+              makePart("n10_11a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
+              makePart("n10_11b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          }
+        }
+
+        // Scenario 3 (table): PE scoring system
+        if(scenario===3){
+          if(!isCalc){
+            const press = rng.int(8,20);
+            const squats = rng.int(10,25);
+            const sets = rng.int(2,6);
+            const bonus = rng.int(2,10);
+
+            const rows = [
+              {name:"Press-ups per set", val:mml(mmn(press))},
+              {name:"Squats per set", val:mml(mmn(squats))},
+              {name:"Sets", val:mml(mmn(sets))},
+              {name:"Bonus points", val:mml(mmn(bonus))}
+            ];
+
+            const intro =
+              `A PE teacher uses a scoring system for a workout.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            const aCore = mrowN(mmt("press-ups per set"), mmo("×"), mmt("sets"));
+            const aExpr = withBrackets
+              ? mml(mrowN(mfencedN(aCore), mmo("−"), mmt("bonus points")))
+              : mml(mrowN(aCore, mmo("−"), mmt("bonus points")));
+
+            const bCore = mrowN(
+              mmt("squats per set"), mmo("×"), mmt("sets"),
+              mmo("+"),
+              msupN(mmt("bonus points"), 2),
+              mmo("−"),
+              mmt("press-ups per set")
+            );
+            const bExpr = withBrackets
+              ? mml(mrowN(
+                  mfencedN(mrowN(mmt("squats per set"), mmo("×"), mmt("sets"))),
+                  mmo("+"),
+                  msupN(mmt("bonus points"), 2),
+                  mmo("−"),
+                  mmt("press-ups per set")
+                ))
+              : mml(bCore);
+
+            const aAns = press*sets - bonus;
+            const bAns = (squats*sets) + (bonus*bonus) - press;
+
+            return Q([
+              makePart("n10_12a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
+              makePart("n10_12b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          } else {
+            const press = dec(8,20,1);
+            const squats = dec(10,30,2);
+            const sets = dec(2,6,1);
+            const bonus = dec(2,6,1);
+
+            const rows = [
+              {name:"Press-ups per set", val:mml(mmn(press.s))},
+              {name:"Squats per set", val:mml(mmn(squats.s))},
+              {name:"Sets", val:mml(mmn(sets.s))},
+              {name:"Bonus points", val:mml(mmn(bonus.s))}
+            ];
+
+            const intro =
+              `A PE teacher uses a scoring system for a workout.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            const aCore = mrowN(mmt("press-ups per set"), mmo("×"), mmt("sets"));
+            const aExpr = withBrackets
+              ? mml(mrowN(mfencedN(aCore), mmo("−"), mmt("bonus points")))
+              : mml(mrowN(aCore, mmo("−"), mmt("bonus points")));
+
+            const bCore = mrowN(
+              mmt("squats per set"), mmo("×"), mmt("sets"),
+              mmo("+"),
+              msupN(mmt("bonus points"), 2),
+              mmo("−"),
+              mmt("press-ups per set")
+            );
+            const bExpr = withBrackets
+              ? mml(mrowN(
+                  mfencedN(mrowN(mmt("squats per set"), mmo("×"), mmt("sets"))),
+                  mmo("+"),
+                  msupN(mmt("bonus points"), 2),
+                  mmo("−"),
+                  mmt("press-ups per set")
+                ))
+              : mml(bCore);
+
+            const aAns = press.v*sets.v - bonus.v;
+            const bAns = (squats.v*sets.v) + (bonus.v*bonus.v) - press.v;
+
+            return Q([
+              makePart("n10_12a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
+              makePart("n10_12b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          }
+        }
+      }
+
+      /* -------------------- 5 MARK (table + parts a/b) -------------------- */
+      if(marksTotal===5){
+        const scenario = rng.int(1,3);
+
+        // Scenario 1 (money table + CUBING) — brackets needed in (a)
+        if(scenario===1){
+          if(!isCalc){
+            const ticket = rng.int(6,15);
+            const premium = rng.int(1,6);
+            const booking = rng.int(1,6);
+            const voucher = rng.int(1,20);
+            const group = rng.int(2,8);
+            const service = rng.int(2,5);
+
+            const rows = [
+              {name:"Ticket price", val:mml(mmn(ticket))},
+              {name:"Premium extra", val:mml(mmn(premium))},
+              {name:"Booking fee", val:mml(mmn(booking))},
+              {name:"Voucher discount", val:mml(mmn(voucher))},
+              {name:"Group size", val:mml(mmn(group))},
+              {name:"Service charge", val:mml(mmn(service))}
+            ];
+
+            const intro =
+              `A cinema offers premium seats.<br>`+
+              `There are also booking fees and discounts.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            // (a) [2] 3 ops: (ticket + premium) × group + booking
+            const aExpr = mml(mrowN(
+              mfencedN(mrowN(mmt("ticket price"), mmo("+"), mmt("premium extra"))),
+              mmo("×"),
+              mmt("group size"),
+              mmo("+"),
+              mmt("booking fee")
+            ));
+
+            // (b) [3] 4 ops max: service³ + ticket×group − voucher  (NO double brackets)
+            const serviceCube = msupN(mmt("service charge"), 3);
+            const bExpr = mml(mrowN(
+              serviceCube,
+              mmo("+"),
+              mmt("ticket price"), mmo("×"), mmt("group size"),
+              mmo("−"),
+              mmt("voucher discount")
+            ));
+
+            const aAns = (ticket + premium)*group + booking;
+            const bAns = (service*service*service + (ticket*group)) - voucher;
+
+            return Q([
+              makePart("n10_13a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
+              makePart("n10_13b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          } else {
+            const ticket = dec(6,15,2);
+            const premium = dec(1,6,2);
+            const booking = dec(1,6,2);
+            const voucher = dec(1,15,2);
+            const group = dec(2,8,1);
+            const service = dec(1.5,4.5,2);
+
+            const rows = [
+              {name:"Ticket price", val:mml(mmn(ticket.s))},
+              {name:"Premium extra", val:mml(mmn(premium.s))},
+              {name:"Booking fee", val:mml(mmn(booking.s))},
+              {name:"Voucher discount", val:mml(mmn(voucher.s))},
+              {name:"Group size", val:mml(mmn(group.s))},
+              {name:"Service charge", val:mml(mmn(service.s))}
+            ];
+
+            const intro =
+              `A cinema offers premium seats.<br>`+
+              `There are also booking fees and discounts.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            const aExpr = mml(mrowN(
+              mfencedN(mrowN(mmt("ticket price"), mmo("+"), mmt("premium extra"))),
+              mmo("×"),
+              mmt("group size"),
+              mmo("+"),
+              mmt("booking fee")
+            ));
+
+            const serviceCube = msupN(mmt("service charge"), 3);
+            const bExpr = mml(mrowN(
+              serviceCube,
+              mmo("+"),
+              mmt("ticket price"), mmo("×"), mmt("group size"),
+              mmo("−"),
+              mmt("voucher discount")
+            ));
+
+            const aAns = (ticket.v + premium.v)*group.v + booking.v;
+            const bAns = (service.v**3 + (ticket.v*group.v)) - voucher.v;
+
+            return Q([
+              makePart("n10_13a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
+              makePart("n10_13b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          }
+        }
+
+        // Scenario 2 (table + CUBE ROOTING) — MIX brackets 50% (overall mark-5 mix stays ~50/50)
+        if(scenario===2){
+          const withBrackets = coin();
+          if(!isCalc){
+            const start = -rng.int(2,10);
+            const rise = rng.int(5,12);
+            const fall = rng.int(2,10);
+            const extra = rng.int(1,6);
+            const hours = rng.int(2,6);
+            const sensorCubes = [8,27,64,125,216,343];
+            const sensor = rng.choice(sensorCubes);
+            const sensorRoot = Math.round(Math.cbrt(sensor));
+
+            const rows = [
+              {name:"Start", val:mml(mmn(start))},
+              {name:"Rise", val:mml(mmn(rise))},
+              {name:"Fall", val:mml(mmn(fall))},
+              {name:"Extra drop", val:mml(mmn(extra))},
+              {name:"Hours", val:mml(mmn(hours))},
+              {name:"Sensor check", val:mml(mmn(sensor))}
+            ];
+
+            const intro =
+              `A weather station models temperature changes.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            // (a) [2] 3 ops
+            const aExpr = withBrackets
+              ? mml(mrowN(mfencedN(mrowN(mmt("start"), mmo("+"), mmt("rise"))), mmo("−"), mmt("fall"), mmo("−"), mmt("extra drop")))
+              : mml(mrowN(mmt("start"), mmo("+"), mmt("rise"), mmo("−"), mmt("fall"), mmo("−"), mmt("extra drop")));
+
+            // (b) [3] 4 ops max
+            const riseHours = mrowN(mmt("rise"), mmo("×"), mmt("hours"));
+            const cbrt = mrootN(mmt("sensor check"), mmn(3));
+            const bExpr = withBrackets
+              ? mml(mrowN(mfencedN(riseHours), mmo("+"), cbrt, mmo("−"), mmt("fall")))
+              : mml(mrowN(riseHours, mmo("+"), cbrt, mmo("−"), mmt("fall")));
+
+            const aAns = start + rise - fall - extra;
+            const bAns = (rise*hours) + sensorRoot - fall;
+
+            return Q([
+              makePart("n10_14a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
+              makePart("n10_14b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          } else {
+            const startRaw = dec(2,10,1);
+            const start = {v: -startRaw.v, s: ("-" + startRaw.s)};
+            const rise = dec(5,12,2);
+            const fall = dec(2,10,2);
+            const extra = dec(1,6,2);
+            const hours = dec(2,6,1);
+
+            const sensor = cubeFromRoot(2.5, 6.5, 1); // gives radStr with 3 dp
+            const sensorVal = {v: sensor.rad, s: sensor.radStr};
+
+            const rows = [
+              {name:"Start", val:mml(mmn(start.s))},
+              {name:"Rise", val:mml(mmn(rise.s))},
+              {name:"Fall", val:mml(mmn(fall.s))},
+              {name:"Extra drop", val:mml(mmn(extra.s))},
+              {name:"Hours", val:mml(mmn(hours.s))},
+              {name:"Sensor check", val:mml(mmn(sensorVal.s))}
+            ];
+
+            const intro =
+              `A weather station models temperature changes.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            const aExpr = withBrackets
+              ? mml(mrowN(mfencedN(mrowN(mmt("start"), mmo("+"), mmt("rise"))), mmo("−"), mmt("fall"), mmo("−"), mmt("extra drop")))
+              : mml(mrowN(mmt("start"), mmo("+"), mmt("rise"), mmo("−"), mmt("fall"), mmo("−"), mmt("extra drop")));
+
+            const riseHours = mrowN(mmt("rise"), mmo("×"), mmt("hours"));
+            const cbrt = mrootN(mmt("sensor check"), mmn(3));
+            const bExpr = withBrackets
+              ? mml(mrowN(mfencedN(riseHours), mmo("+"), cbrt, mmo("−"), mmt("fall")))
+              : mml(mrowN(riseHours, mmo("+"), cbrt, mmo("−"), mmt("fall")));
+
+            const aAns = start.v + rise.v - fall.v - extra.v;
+            const bAns = (rise.v*hours.v) + sensor.root - fall.v;
+
+            return Q([
+              makePart("n10_14a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
+              makePart("n10_14b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          }
+        }
+
+        // Scenario 3 (table + SQRT + SQUARING) — NO brackets (keeps overall mix balanced)
+        if(scenario===3){
+          if(!isCalc){
+            const pA = rng.int(2,6);
+            const hA = rng.int(2,8);
+            const pB = rng.int(2,6);
+            const hB = rng.int(2,10);
+            const saved = rng.int(1,10);
+            const meterSquares = [25,36,49,64,81,100,121,144,169,196];
+            const meter = rng.choice(meterSquares);
+            const loss = rng.int(2,8);
+
+            const rows = [
+              {name:"Power A", val:mml(mmn(pA))},
+              {name:"Hours A", val:mml(mmn(hA))},
+              {name:"Power B", val:mml(mmn(pB))},
+              {name:"Hours B", val:mml(mmn(hB))},
+              {name:"Saved energy", val:mml(mmn(saved))},
+              {name:"Meter reading", val:mml(mmn(meter))},
+              {name:"Loss factor", val:mml(mmn(loss))}
+            ];
+
+            const intro =
+              `An engineer models energy use from two devices.<br>`+
+              `A meter reading is also included.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            // (a) [2] 3 ops: powerA×hoursA + √(meter)
+            const aExpr = mml(mrowN(
+              mmt("power A"), mmo("×"), mmt("hours A"),
+              mmo("+"),
+              msqrtN(mmt("meter reading"))
+            ));
+
+            // (b) [3] 4 ops: powerB×hoursB − saved + loss²
+            const bExpr = mml(mrowN(
+              mmt("power B"), mmo("×"), mmt("hours B"),
+              mmo("−"),
+              mmt("saved energy"),
+              mmo("+"),
+              msupN(mmt("loss factor"), 2)
+            ));
+
+            const aAns = (pA*hA) + Math.sqrt(meter);
+            const bAns = (pB*hB) - saved + (loss*loss);
+
+            return Q([
+              makePart("n10_15a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
+              makePart("n10_15b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          } else {
+            const pA = dec(2,6,2);
+            const hA = dec(2,8,1);
+            const pB = dec(2,6,2);
+            const hB = dec(2,10,1);
+            const saved = dec(1,10,2);
+
+            const sq = squareFromRoot(6,14,1); // exact square like 84.64
+            const meter = {v: sq.rad, s: sq.radStr};
+
+            const loss = dec(2,8,1);
+
+            const rows = [
+              {name:"Power A", val:mml(mmn(pA.s))},
+              {name:"Hours A", val:mml(mmn(hA.s))},
+              {name:"Power B", val:mml(mmn(pB.s))},
+              {name:"Hours B", val:mml(mmn(hB.s))},
+              {name:"Saved energy", val:mml(mmn(saved.s))},
+              {name:"Meter reading", val:mml(mmn(meter.s))},
+              {name:"Loss factor", val:mml(mmn(loss.s))}
+            ];
+
+            const intro =
+              `An engineer models energy use from two devices.<br>`+
+              `A meter reading is also included.<br>`+
+              `The values are shown in the table.<div style="height:8px"></div>`+
+              tableHtml(rows) +
+              `<div style="height:8px"></div>`;
+
+            const aExpr = mml(mrowN(
+              mmt("power A"), mmo("×"), mmt("hours A"),
+              mmo("+"),
+              msqrtN(mmt("meter reading"))
+            ));
+
+            const bExpr = mml(mrowN(
+              mmt("power B"), mmo("×"), mmt("hours B"),
+              mmo("−"),
+              mmt("saved energy"),
+              mmo("+"),
+              msupN(mmt("loss factor"), 2)
+            ));
+
+            const aAns = (pA.v*hA.v) + sq.root;
+            const bAns = (pB.v*hB.v) - saved.v + (loss.v*loss.v);
+
+            return Q([
+              makePart("n10_15a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
+              makePart("n10_15b", workOutLine("(b) ", bExpr, 3), 3, bAns),
+            ]);
+          }
+        }
+      }
+
+      // Fallback (should never hit)
+      return Q([makePart("n10_x", `Not implemented. <span class="endmark">[${marksTotal}]</span>`, marksTotal, 0)]);
+    }
     case "N11": {
       // CHANGE REQUEST #6 (N11): 1–2 mark questions must use a two-step number machine.
       // Number machine rules enforced:
@@ -1031,11 +2098,21 @@ function renderQuestion(q){
 
   const itemsHtml = q.parts.map((p,idx)=>{
     const inputHtml = renderInput(p.input, p.answer?.type, p.input?.id || `p${idx}`);
+    let html = (p.textHtml ?? "");
+    let side = inputHtml;
+
+    // If the question text contains an inline input placeholder, inject the input there
+    // and do not render the separate right-hand column input.
+    if(typeof html === "string" && html.includes("{{INPUT}}")){
+      html = html.replace("{{INPUT}}", inputHtml);
+      side = "";
+    }
+
     return `
       <div class="item">
         <div class="line">
-          <div class="qtext">${p.textHtml}</div>
-          <div>${inputHtml}</div>
+          <div class="qtext">${html}</div>
+          ${side ? `<div>${side}</div>` : ``}
         </div>
       </div>
     `;
@@ -1051,7 +2128,6 @@ function renderQuestion(q){
         ${itemsHtml}
       </div>
     </div>
-    ${teacherNotes(current)}
   `;
 
   initDragOrders();
@@ -1776,9 +2852,11 @@ function markCurrent(){
     }
 
     let ok = false;
+    let partScore = 0;
 
     if(!got.ok){
       ok = false;
+      partScore = 0;
     } else if(expected.type==="fraction"){
       ok = fracEq(got.val, expected.value);
     } else if(expected.type==="pair"){
@@ -1799,22 +2877,50 @@ function markCurrent(){
     } else if(expected.type==="time"){
       ok = String(got.val).trim() === String(expected.value).trim();
     } else {
-      // number
-      ok = close(got.val, expected.value, Math.max(1e-9, Math.abs(expected.value)*1e-8));
+      // number (with special rounding rule for calculator questions)
+      const tol = Math.max(1e-9, Math.abs(expected.value)*1e-8);
+
+      if(typeof got.val === "number" && Number.isFinite(got.val)){
+        const exactOk = close(got.val, expected.value, tol);
+
+        if(typeof expected.dp === "number"){
+          const dp = expected.dp;
+          const raw = (got.els && got.els[0]) ? String(got.els[0].value).trim() : String(got.val);
+          const fmtOk = new RegExp(`^-?\d+(\.\d{${dp}})$`).test(raw);
+
+          if(exactOk && fmtOk){
+            ok = true;
+            partScore = pm;
+          } else if(Math.abs(got.val - expected.value) <= 1){
+            ok = false;
+            partScore = Math.max(0, pm - 1);
+          } else {
+            ok = false;
+            partScore = 0;
+          }
+        } else {
+          ok = exactOk;
+        }
+      } else {
+        ok = false;
+      }
     }
 
-    // Mark UI elements
+    if(partScore===0 && ok) partScore = pm;
+
+    // Mark UI elements (green only for full marks)
     if(got.els && got.els.length){
       got.els.forEach(el=>markEl(el, ok));
     }
 
-    if(ok) score += pm;
+    score += partScore;
   }
 
   fb.style.display="block";
   fb.className = "feedback " + (score===max ? "good" : (score>0 ? "" : "bad"));
   fb.innerHTML = `<b>Score:</b> ${score} / ${max}`;
 }
+
 
 
 
@@ -1868,6 +2974,9 @@ function revealCurrent(){
     if(ex.type==="time"){
       return String(ex.value);
     }
+    if(ex.type==="number" && typeof ex.dp==="number"){
+      return Number(ex.value).toFixed(ex.dp);
+    }
     if(p.input && p.input.kind==="money"){
       return "£" + Number(ex.value).toFixed(2);
     }
@@ -1881,74 +2990,11 @@ function revealCurrent(){
         ${answers.map(a=>`<li>${a}</li>`).join("")}
       </ol>
     </div>
-    ${teacherNotes(current)}
   `;
 }
 
 
 
-
-function teacherNotes(q){
-  if(!q) return "";
-  const t = TOPICS.find(x=>x.code===q.topicCode);
-  const topicName = t ? t.name : q.topicCode;
-  const m = q.marksTotal;
-
-  const f = (n,d)=>mfrac(n,d);
-  const li = (items)=>items.map(s=>`<li>${s}</li>`).join("");
-  const modeNote = (q.paperMode==="calc")
-    ? "Calculator: values are set so calculator use is meaningful (non‑friendly decimals/large values) while the assessment focus remains on the targeted number skill."
-    : "Non‑calculator: values are chosen so written/mental methods are realistic, keeping the focus on structure and place value rather than calculator keystrokes.";
-
-
-  let intent = "";
-  let mark = [];
-  let miscon = [];
-  let next = "";
-  let variants = [];
-
-  switch(q.topicCode){
-    /* SPLITMERGE:TEACHERNOTES-CASES-START */
-
-    /* SPLITMERGE:TEACHERNOTES-CASES-END */
-  }
-
-  // Default fallbacks (keep concise but usable)
-  if(!intent){
-    intent = `Assess ${topicName.toLowerCase()} at GCSE ${m}-mark demand.`;
-  }
-  if(mark.length===0){
-    if(m===1) mark = ["A1: correct answer."];
-    else if(m===2) mark = ["M1: correct method/approach.","A1: correct final answer."];
-    else if(m===3) mark = ["M1: selects a suitable method from the context.","M1: carries out the method correctly.","A1: correct final answer with units/format."];
-    else if(m===4) mark = ["M1: sets up a correct multi-step method.","M1: completes key steps correctly.","A1: correct final result.","B1: justification/comparison as required."];
-    else mark = ["M1: forms a correct strategy/equation.","M1: executes key steps correctly.","M1: applies constraints/checks reasonableness.","A1: correct final result.","B1: coherent conclusion/justification where required."];
-  }
-  if(miscon.length===0){
-    miscon = [
-      "Chooses an incorrect rule/procedure → indicates a gap in the key definition or prerequisite skill.",
-      "Uses the right method but makes a place-value/negative-sign slip → indicates a fluency issue."
-    ];
-    next = next || "Re-teach the key rule/definition, then practise with ‘one-change’ questions and immediate checking.";
-    variants = variants.length ? variants : ["Shopping (£) context.","Measurement context (cm, kg, L).","Travel/time context."];
-  }
-  if(!next) next = "Re-teach the key idea, model one worked example, then set short focused practice on the micro-skill that failed.";
-
-  return `
-    <div class="fb" style="margin-top:10px">
-      <b>Teacher notes (diagnostic):</b><br>
-      <div style="margin-top:6px"><b>Assessment intent:</b> ${intent}<br><span class="muted"><b>${q.paperMode==="calc"?"CALCULATOR":"NON-CALCULATOR"}:</b> ${modeNote}</span></div>
-      <div style="margin-top:6px"><b>Indicative mark scheme:</b>
-        <ul>${li(mark)}</ul>
-      </div>
-      <div style="margin-top:6px"><b>Common wrong answers / misconceptions:</b>
-        <ul>${li(miscon)}</ul>
-      </div>
-      <div style="margin-top:6px"><b>Next teaching move:</b> ${next}</div>
-      ${(m>=3)?`<div style="margin-top:6px"><b>Scenario variants (same maths, different context):</b> Randomised in the student prompt (3 contexts).</div>`:""}
-    </div>
-  `;
-}
 
 function generateNew(){
   const topic = topicSel.value;
