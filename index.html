@@ -2877,32 +2877,31 @@ function markCurrent(){
     } else if(expected.type==="time"){
       ok = String(got.val).trim() === String(expected.value).trim();
     } else {
-      // number (with special rounding rule for calculator questions)
+      // number (with rounding / partial-credit rule when a dp requirement is present)
       const tol = Math.max(1e-9, Math.abs(expected.value)*1e-8);
+      const exactOk = close(got.val, expected.value, tol);
 
-      if(typeof got.val === "number" && Number.isFinite(got.val)){
-        const exactOk = close(got.val, expected.value, tol);
+      if(typeof expected.dp === "number"){
+        const dp = expected.dp;
 
-        if(typeof expected.dp === "number"){
-          const dp = expected.dp;
-          const raw = (got.els && got.els[0]) ? String(got.els[0].value).trim() : String(got.val);
-          const fmtOk = new RegExp(`^-?\d+(\.\d{${dp}})$`).test(raw);
+        // Check the student's *written* format (must show exactly dp decimal places).
+        const raw = (got.els && got.els[0]) ? String(got.els[0].value).trim() : String(got.val);
+        const fmtOk = new RegExp(`^[+-]?(?:\\d+\\.\\d{${dp}}|\\.\\d{${dp}})$`).test(raw);
 
-          if(exactOk && fmtOk){
-            ok = true;
-            partScore = pm;
-          } else if(Math.abs(got.val - expected.value) <= 1){
-            ok = false;
-            partScore = Math.max(0, pm - 1);
-          } else {
-            ok = false;
-            partScore = 0;
-          }
+        // Full marks only if BOTH value and formatting match.
+        if(exactOk && fmtOk){
+          ok = true;
+          partScore = pm;
+        } else if(Math.abs(got.val - expected.value) <= 1){
+          // Within ±1 of the correctly rounded answer: lose 1 mark but keep the rest.
+          ok = false;
+          partScore = Math.max(0, pm - 1);
         } else {
-          ok = exactOk;
+          ok = false;
+          partScore = 0;
         }
       } else {
-        ok = false;
+        ok = exactOk;
       }
     }
 
@@ -2920,9 +2919,6 @@ function markCurrent(){
   fb.className = "feedback " + (score===max ? "good" : (score>0 ? "" : "bad"));
   fb.innerHTML = `<b>Score:</b> ${score} / ${max}`;
 }
-
-
-
 
 function revealCurrent(){
   if(!current) return;
