@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1206,22 +1207,33 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
 
         // Scenario 1 (money table): cinema charges
         if(scenario===1){
+          const labels = ["Ticket price", "Booking fee", "Voucher discount", "Service charge"];
+
           if(!isCalc){
-            const ticket = rng.int(6,15);
-            const fee = rng.int(1,6);
-            const service = rng.int(2,6);
+            const values = {
+              "Ticket price": rng.int(2,15),
+              "Booking fee": rng.int(1,8),
+              "Voucher discount": rng.int(1,25),
+              "Service charge": rng.int(2,6)
+            };
 
-            // Ensure (ticket*8 - voucher) is divisible by service for an integer answer
-            const maxK = Math.max(1, Math.floor((ticket*8 - 1) / service));
+            const permB = rng.shuffle(labels);
+            const bMulLabel = permB[0];
+            const bSubLabel = permB[1];
+            const bDivLabel = permB[2];
+            const bMulVal = rng.int(2,12);
+            const bDivVal = rng.int(2,6);
+            const maxK = Math.max(1, Math.floor((bMulVal*8 - 1) / bDivVal));
             const k = rng.int(1, maxK);
-            const voucher = (ticket*8) - (k*service);
+            values[bMulLabel] = bMulVal;
+            values[bDivLabel] = bDivVal;
+            values[bSubLabel] = (bMulVal*8) - (k*bDivVal);
 
-            const rows = [
-              {name:"Ticket price", val:mml(mmn(ticket))},
-              {name:"Booking fee", val:mml(mmn(fee))},
-              {name:"Voucher discount", val:mml(mmn(voucher))},
-              {name:"Service charge", val:mml(mmn(service))}
-            ];
+            const permA = rng.shuffle(labels);
+            const aMulLabel = permA[0];
+            const aAddLabel = permA[1];
+
+            const rows = labels.map(name=>({name, val:mml(mmn(values[name]))}));
 
             const intro =
               `A cinema charges for tickets.<br>`+
@@ -1230,40 +1242,45 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               tableHtml(rows) +
               `<div style="height:8px"></div>`;
 
-            // (a) 2 ops: ticket price × 5 + booking fee
-            const aCore = mrowN(mmt("ticket price"), mmo("×"), mmn(5));
+            const aCore = mrowN(mmt(aMulLabel), mmo("×"), mmn(5));
             const aExpr = withBrackets
-              ? mml(mrowN(mfencedN(aCore), mmo("+"), mmt("booking fee")))
-              : mml(mrowN(aCore, mmo("+"), mmt("booking fee")));
+              ? mml(mrowN(mfencedN(aCore), mmo("+"), mmt(aAddLabel)))
+              : mml(mrowN(aCore, mmo("+"), mmt(aAddLabel)));
 
-            // (b) 4 ops max: (ticket price × 8 − voucher discount) ÷ service charge
-            const numCore = mrowN(mmt("ticket price"), mmo("×"), mmn(8), mmo("−"), mmt("voucher discount"));
+            const numCore = mrowN(mmt(bMulLabel), mmo("×"), mmn(8), mmo("−"), mmt(bSubLabel));
             const bExpr = withBrackets
-              ? mml(mrowN(mfencedN(numCore), mmo("÷"), mmt("service charge")))
-              : mml(`<mfrac>${numCore}${mmt("service charge")}</mfrac>`);
+              ? mml(mrowN(mfencedN(numCore), mmo("÷"), mmt(bDivLabel)))
+              : mml(`<mfrac>${numCore}${mmt(bDivLabel)}</mfrac>`);
 
-            const aAns = ticket*5 + fee;
-            const bAns = ((ticket*8) - voucher) / service;
+            const aAns = values[aMulLabel]*5 + values[aAddLabel];
+            const bAns = ((values[bMulLabel]*8) - values[bSubLabel]) / values[bDivLabel];
 
             return Q([
               makePart("n10_10a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
               makePart("n10_10b", workOutLine("(b) ", bExpr, 3), 3, bAns),
             ]);
           } else {
-            const ticket = dec(6,15,2);
-            const fee = dec(1,6,2);
-            const service = dec(2,6,2);
+            const values = {
+              "Ticket price": dec(6,15,2).v,
+              "Booking fee": dec(1,6,2).v,
+              "Voucher discount": dec(0.5,15,2).v,
+              "Service charge": dec(2,6,2).v
+            };
 
-            // keep voucher smaller than ticket*8 so the numerator stays positive
-            const maxVoucher = Math.max(0.5, ticket.v*8 - 0.5);
-            const voucher = dec(0.5, Math.min(15, maxVoucher), 2);
+            const permB = rng.shuffle(labels);
+            const bMulLabel = permB[0];
+            const bSubLabel = permB[1];
+            const bDivLabel = permB[2];
+            values[bMulLabel] = dec(3,18,2).v;
+            values[bDivLabel] = dec(2,6,2).v;
+            const maxVoucher = Math.max(0.5, values[bMulLabel]*8 - 0.5);
+            values[bSubLabel] = dec(0.5, Math.min(25, maxVoucher), 2).v;
 
-            const rows = [
-              {name:"Ticket price", val:mml(mmn(ticket.s))},
-              {name:"Booking fee", val:mml(mmn(fee.s))},
-              {name:"Voucher discount", val:mml(mmn(voucher.s))},
-              {name:"Service charge", val:mml(mmn(service.s))}
-            ];
+            const permA = rng.shuffle(labels);
+            const aMulLabel = permA[0];
+            const aAddLabel = permA[1];
+
+            const rows = labels.map(name=>({name, val:mml(mmn(values[name].toFixed(2)))}));
 
             const intro =
               `A cinema charges for tickets.<br>`+
@@ -1272,18 +1289,18 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               tableHtml(rows) +
               `<div style="height:8px"></div>`;
 
-            const aCore = mrowN(mmt("ticket price"), mmo("×"), mmn(5));
+            const aCore = mrowN(mmt(aMulLabel), mmo("×"), mmn(5));
             const aExpr = withBrackets
-              ? mml(mrowN(mfencedN(aCore), mmo("+"), mmt("booking fee")))
-              : mml(mrowN(aCore, mmo("+"), mmt("booking fee")));
+              ? mml(mrowN(mfencedN(aCore), mmo("+"), mmt(aAddLabel)))
+              : mml(mrowN(aCore, mmo("+"), mmt(aAddLabel)));
 
-            const numCore = mrowN(mmt("ticket price"), mmo("×"), mmn(8), mmo("−"), mmt("voucher discount"));
+            const numCore = mrowN(mmt(bMulLabel), mmo("×"), mmn(8), mmo("−"), mmt(bSubLabel));
             const bExpr = withBrackets
-              ? mml(mrowN(mfencedN(numCore), mmo("÷"), mmt("service charge")))
-              : mml(`<mfrac>${numCore}${mmt("service charge")}</mfrac>`);
+              ? mml(mrowN(mfencedN(numCore), mmo("÷"), mmt(bDivLabel)))
+              : mml(`<mfrac>${numCore}${mmt(bDivLabel)}</mfrac>`);
 
-            const aAns = ticket.v*5 + fee.v;
-            const bAns = ((ticket.v*8) - voucher.v) / service.v;
+            const aAns = values[aMulLabel]*5 + values[aAddLabel];
+            const bAns = ((values[bMulLabel]*8) - values[bSubLabel]) / values[bDivLabel];
 
             return Q([
               makePart("n10_10a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
@@ -1295,28 +1312,38 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
         // Scenario 2 (table): coach company times
         // NOTE: Avoids sums inside square roots and avoids part (b) reusing part (a).
         if(scenario===2){
+          const labels = ["Section A", "Section B", "Stop time", "Delay"];
+
           if(!isCalc){
-            // Choose Section B and stop time so Section B × stop time is a perfect square.
+            const values = {
+              "Section A": rng.int(10,30),
+              "Section B": rng.int(4,18),
+              "Stop time": rng.int(2,12),
+              "Delay": rng.int(2,12)
+            };
+
+            const permB = rng.shuffle(labels);
+            const bAddLabel = permB[0];
+            const bRootLeftLabel = permB[1];
+            const bRootRightLabel = permB[2];
+            const bSubLabel = permB[3];
             const root = rng.int(4,15);
             const square = root*root;
-
-            // Pick a divisor for Section B
             const divisors = [];
-            for(let d=2; d<=square; d++){
-              if(square % d === 0) divisors.push(d);
-            }
-            const secB = rng.choice(divisors);
-            const stop = square / secB;
+            for(let d=2; d<=square; d++) if(square % d === 0) divisors.push(d);
+            const leftVal = rng.choice(divisors);
+            const rightVal = square / leftVal;
+            values[bAddLabel] = rng.int(10,30);
+            values[bRootLeftLabel] = leftVal;
+            values[bRootRightLabel] = rightVal;
+            values[bSubLabel] = rng.int(2,12);
 
-            const secA = rng.int(10,30);
-            const delay = rng.int(2,12);
+            const permA = rng.shuffle(labels);
+            const aMulLabel = permA[0];
+            const aMidLabel = permA[1];
+            const aSubLabel = permA[2];
 
-            const rows = [
-              {name:"Section A", val:mml(mmn(secA))},
-              {name:"Section B", val:mml(mmn(secB))},
-              {name:"Stop time", val:mml(mmn(stop))},
-              {name:"Delay", val:mml(mmn(delay))}
-            ];
+            const rows = labels.map(name=>({name, val:mml(mmn(values[name]))}));
 
             const intro =
               `A coach company records times for parts of a route.<br>`+
@@ -1325,44 +1352,50 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               tableHtml(rows) +
               `<div style="height:8px"></div>`;
 
-            // (a) [1] 2 ops
-            // Bracketless: Section B × delay − stop time
-            // Bracketed:   Section B × (delay − stop time)
             const aExpr = withBrackets
-              ? mml(mrowN(mmt("Section B"), mmo("×"), mfencedN(mrowN(mmt("delay"), mmo("−"), mmt("stop time")))))
-              : mml(mrowN(mmt("Section B"), mmo("×"), mmt("delay"), mmo("−"), mmt("stop time")));
+              ? mml(mrowN(mmt(aMulLabel), mmo("×"), mfencedN(mrowN(mmt(aMidLabel), mmo("−"), mmt(aSubLabel)))))
+              : mml(mrowN(mmt(aMulLabel), mmo("×"), mmt(aMidLabel), mmo("−"), mmt(aSubLabel)));
 
-            // (b) [3] 4 ops max (and does NOT reuse (a))
-            // Section A + √(Section B × stop time) − delay
-            const rootInner = mrowN(mmt("Section B"), mmo("×"), mmt("stop time"));
+            const rootInner = mrowN(mmt(bRootLeftLabel), mmo("×"), mmt(bRootRightLabel));
             const sqrtTerm = msqrtN(rootInner);
-            const bCore = mrowN(mmt("Section A"), mmo("+"), sqrtTerm, mmo("−"), mmt("delay"));
+            const bCore = mrowN(mmt(bAddLabel), mmo("+"), sqrtTerm, mmo("−"), mmt(bSubLabel));
             const bExpr = withBrackets
-              ? mml(mrowN(mfencedN(mrowN(mmt("Section A"), mmo("+"), sqrtTerm)), mmo("−"), mmt("delay")))
+              ? mml(mrowN(mfencedN(mrowN(mmt(bAddLabel), mmo("+"), sqrtTerm)), mmo("−"), mmt(bSubLabel)))
               : mml(bCore);
 
             const aAns = withBrackets
-              ? (secB * (delay - stop))
-              : (secB * delay - stop);
-
-            const bAns = secA + Math.sqrt(secB*stop) - delay;
+              ? (values[aMulLabel] * (values[aMidLabel] - values[aSubLabel]))
+              : (values[aMulLabel] * values[aMidLabel] - values[aSubLabel]);
+            const bAns = values[bAddLabel] + Math.sqrt(values[bRootLeftLabel]*values[bRootRightLabel]) - values[bSubLabel];
 
             return Q([
               makePart("n10_11a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
               makePart("n10_11b", workOutLine("(b) ", bExpr, 3), 3, bAns),
             ]);
           } else {
-            const secA = dec(12,30,2);
-            const secB = dec(6,20,2);
-            const stop = dec(2,12,2);
-            const delay = dec(2,12,2);
+            const values = {
+              "Section A": dec(12,30,2).v,
+              "Section B": dec(6,20,2).v,
+              "Stop time": dec(2,12,2).v,
+              "Delay": dec(2,12,2).v
+            };
 
-            const rows = [
-              {name:"Section A", val:mml(mmn(secA.s))},
-              {name:"Section B", val:mml(mmn(secB.s))},
-              {name:"Stop time", val:mml(mmn(stop.s))},
-              {name:"Delay", val:mml(mmn(delay.s))}
-            ];
+            const permB = rng.shuffle(labels);
+            const bAddLabel = permB[0];
+            const bRootLeftLabel = permB[1];
+            const bRootRightLabel = permB[2];
+            const bSubLabel = permB[3];
+            values[bAddLabel] = dec(12,30,2).v;
+            values[bRootLeftLabel] = dec(2,15,2).v;
+            values[bRootRightLabel] = dec(2,15,2).v;
+            values[bSubLabel] = dec(2,12,2).v;
+
+            const permA = rng.shuffle(labels);
+            const aMulLabel = permA[0];
+            const aMidLabel = permA[1];
+            const aSubLabel = permA[2];
+
+            const rows = labels.map(name=>({name, val:mml(mmn(values[name].toFixed(2)))}));
 
             const intro =
               `A coach company records times for parts of a route.<br>`+
@@ -1372,21 +1405,20 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               `<div style="height:8px"></div>`;
 
             const aExpr = withBrackets
-              ? mml(mrowN(mmt("Section B"), mmo("×"), mfencedN(mrowN(mmt("delay"), mmo("−"), mmt("stop time")))))
-              : mml(mrowN(mmt("Section B"), mmo("×"), mmt("delay"), mmo("−"), mmt("stop time")));
+              ? mml(mrowN(mmt(aMulLabel), mmo("×"), mfencedN(mrowN(mmt(aMidLabel), mmo("−"), mmt(aSubLabel)))))
+              : mml(mrowN(mmt(aMulLabel), mmo("×"), mmt(aMidLabel), mmo("−"), mmt(aSubLabel)));
 
-            const rootInner = mrowN(mmt("Section B"), mmo("×"), mmt("stop time"));
+            const rootInner = mrowN(mmt(bRootLeftLabel), mmo("×"), mmt(bRootRightLabel));
             const sqrtTerm = msqrtN(rootInner);
-            const bCore = mrowN(mmt("Section A"), mmo("+"), sqrtTerm, mmo("−"), mmt("delay"));
+            const bCore = mrowN(mmt(bAddLabel), mmo("+"), sqrtTerm, mmo("−"), mmt(bSubLabel));
             const bExpr = withBrackets
-              ? mml(mrowN(mfencedN(mrowN(mmt("Section A"), mmo("+"), sqrtTerm)), mmo("−"), mmt("delay")))
+              ? mml(mrowN(mfencedN(mrowN(mmt(bAddLabel), mmo("+"), sqrtTerm)), mmo("−"), mmt(bSubLabel)))
               : mml(bCore);
 
             const aAns = withBrackets
-              ? (secB.v * (delay.v - stop.v))
-              : (secB.v * delay.v - stop.v);
-
-            const bAns = secA.v + Math.sqrt(secB.v*stop.v) - delay.v;
+              ? (values[aMulLabel] * (values[aMidLabel] - values[aSubLabel]))
+              : (values[aMulLabel] * values[aMidLabel] - values[aSubLabel]);
+            const bAns = values[bAddLabel] + Math.sqrt(values[bRootLeftLabel]*values[bRootRightLabel]) - values[bSubLabel];
 
             return Q([
               makePart("n10_11a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
@@ -1397,18 +1429,28 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
 
         // Scenario 3 (table): PE scoring system
         if(scenario===3){
-          if(!isCalc){
-            const press = rng.int(8,20);
-            const squats = rng.int(10,25);
-            const sets = rng.int(2,6);
-            const bonus = rng.int(2,10);
+          const labels = ["Press-ups per set", "Squats per set", "Sets", "Bonus points"];
 
-            const rows = [
-              {name:"Press-ups per set", val:mml(mmn(press))},
-              {name:"Squats per set", val:mml(mmn(squats))},
-              {name:"Sets", val:mml(mmn(sets))},
-              {name:"Bonus points", val:mml(mmn(bonus))}
-            ];
+          if(!isCalc){
+            const values = {
+              "Press-ups per set": rng.int(8,20),
+              "Squats per set": rng.int(10,25),
+              "Sets": rng.int(2,6),
+              "Bonus points": rng.int(2,10)
+            };
+
+            const permA = rng.shuffle(labels);
+            const aMulLeftLabel = permA[0];
+            const aMulRightLabel = permA[1];
+            const aSubLabel = permA[2];
+
+            const permB = rng.shuffle(labels);
+            const bMulLeftLabel = permB[0];
+            const bMulRightLabel = permB[1];
+            const bSquareLabel = permB[2];
+            const bSubLabel = permB[3];
+
+            const rows = labels.map(name=>({name, val:mml(mmn(values[name]))}));
 
             const intro =
               `A PE teacher uses a scoring system for a workout.<br>`+
@@ -1416,47 +1458,55 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               tableHtml(rows) +
               `<div style="height:8px"></div>`;
 
-            const aCore = mrowN(mmt("press-ups per set"), mmo("×"), mmt("sets"));
+            const aCore = mrowN(mmt(aMulLeftLabel), mmo("×"), mmt(aMulRightLabel));
             const aExpr = withBrackets
-              ? mml(mrowN(mfencedN(aCore), mmo("−"), mmt("bonus points")))
-              : mml(mrowN(aCore, mmo("−"), mmt("bonus points")));
+              ? mml(mrowN(mfencedN(aCore), mmo("−"), mmt(aSubLabel)))
+              : mml(mrowN(aCore, mmo("−"), mmt(aSubLabel)));
 
             const bCore = mrowN(
-              mmt("squats per set"), mmo("×"), mmt("sets"),
+              mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel),
               mmo("+"),
-              msupN(mmt("bonus points"), 2),
+              msupN(mmt(bSquareLabel), 2),
               mmo("−"),
-              mmt("press-ups per set")
+              mmt(bSubLabel)
             );
             const bExpr = withBrackets
               ? mml(mrowN(
-                  mfencedN(mrowN(mmt("squats per set"), mmo("×"), mmt("sets"))),
+                  mfencedN(mrowN(mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel))),
                   mmo("+"),
-                  msupN(mmt("bonus points"), 2),
+                  msupN(mmt(bSquareLabel), 2),
                   mmo("−"),
-                  mmt("press-ups per set")
+                  mmt(bSubLabel)
                 ))
               : mml(bCore);
 
-            const aAns = press*sets - bonus;
-            const bAns = (squats*sets) + (bonus*bonus) - press;
+            const aAns = values[aMulLeftLabel]*values[aMulRightLabel] - values[aSubLabel];
+            const bAns = (values[bMulLeftLabel]*values[bMulRightLabel]) + (values[bSquareLabel]*values[bSquareLabel]) - values[bSubLabel];
 
             return Q([
               makePart("n10_12a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
               makePart("n10_12b", workOutLine("(b) ", bExpr, 3), 3, bAns),
             ]);
           } else {
-            const press = dec(8,20,1);
-            const squats = dec(10,30,2);
-            const sets = dec(2,6,1);
-            const bonus = dec(2,6,1);
+            const values = {
+              "Press-ups per set": dec(8,20,1).v,
+              "Squats per set": dec(10,30,2).v,
+              "Sets": dec(2,6,1).v,
+              "Bonus points": dec(2,6,1).v
+            };
 
-            const rows = [
-              {name:"Press-ups per set", val:mml(mmn(press.s))},
-              {name:"Squats per set", val:mml(mmn(squats.s))},
-              {name:"Sets", val:mml(mmn(sets.s))},
-              {name:"Bonus points", val:mml(mmn(bonus.s))}
-            ];
+            const permA = rng.shuffle(labels);
+            const aMulLeftLabel = permA[0];
+            const aMulRightLabel = permA[1];
+            const aSubLabel = permA[2];
+
+            const permB = rng.shuffle(labels);
+            const bMulLeftLabel = permB[0];
+            const bMulRightLabel = permB[1];
+            const bSquareLabel = permB[2];
+            const bSubLabel = permB[3];
+
+            const rows = labels.map(name=>({name, val:mml(mmn(values[name].toFixed((name==="Squats per set") ? 2 : 1)))}));
 
             const intro =
               `A PE teacher uses a scoring system for a workout.<br>`+
@@ -1464,30 +1514,30 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               tableHtml(rows) +
               `<div style="height:8px"></div>`;
 
-            const aCore = mrowN(mmt("press-ups per set"), mmo("×"), mmt("sets"));
+            const aCore = mrowN(mmt(aMulLeftLabel), mmo("×"), mmt(aMulRightLabel));
             const aExpr = withBrackets
-              ? mml(mrowN(mfencedN(aCore), mmo("−"), mmt("bonus points")))
-              : mml(mrowN(aCore, mmo("−"), mmt("bonus points")));
+              ? mml(mrowN(mfencedN(aCore), mmo("−"), mmt(aSubLabel)))
+              : mml(mrowN(aCore, mmo("−"), mmt(aSubLabel)));
 
             const bCore = mrowN(
-              mmt("squats per set"), mmo("×"), mmt("sets"),
+              mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel),
               mmo("+"),
-              msupN(mmt("bonus points"), 2),
+              msupN(mmt(bSquareLabel), 2),
               mmo("−"),
-              mmt("press-ups per set")
+              mmt(bSubLabel)
             );
             const bExpr = withBrackets
               ? mml(mrowN(
-                  mfencedN(mrowN(mmt("squats per set"), mmo("×"), mmt("sets"))),
+                  mfencedN(mrowN(mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel))),
                   mmo("+"),
-                  msupN(mmt("bonus points"), 2),
+                  msupN(mmt(bSquareLabel), 2),
                   mmo("−"),
-                  mmt("press-ups per set")
+                  mmt(bSubLabel)
                 ))
               : mml(bCore);
 
-            const aAns = press.v*sets.v - bonus.v;
-            const bAns = (squats.v*sets.v) + (bonus.v*bonus.v) - press.v;
+            const aAns = values[aMulLeftLabel]*values[aMulRightLabel] - values[aSubLabel];
+            const bAns = (values[bMulLeftLabel]*values[bMulRightLabel]) + (values[bSquareLabel]*values[bSquareLabel]) - values[bSubLabel];
 
             return Q([
               makePart("n10_12a", intro + workOutLine("(a) ", aExpr, 1), 1, aAns),
@@ -1503,22 +1553,31 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
 
         // Scenario 1 (money table + CUBING) — brackets needed in (a)
         if(scenario===1){
-          if(!isCalc){
-            const ticket = rng.int(6,15);
-            const premium = rng.int(1,6);
-            const booking = rng.int(1,6);
-            const voucher = rng.int(1,20);
-            const group = rng.int(2,8);
-            const service = rng.int(2,5);
+          const labels = ["Ticket price", "Premium extra", "Booking fee", "Voucher discount", "Group size", "Service charge"];
 
-            const rows = [
-              {name:"Ticket price", val:mml(mmn(ticket))},
-              {name:"Premium extra", val:mml(mmn(premium))},
-              {name:"Booking fee", val:mml(mmn(booking))},
-              {name:"Voucher discount", val:mml(mmn(voucher))},
-              {name:"Group size", val:mml(mmn(group))},
-              {name:"Service charge", val:mml(mmn(service))}
-            ];
+          if(!isCalc){
+            const values = {
+              "Ticket price": rng.int(6,15),
+              "Premium extra": rng.int(1,6),
+              "Booking fee": rng.int(1,6),
+              "Voucher discount": rng.int(1,20),
+              "Group size": rng.int(2,8),
+              "Service charge": rng.int(2,5)
+            };
+
+            const permA = rng.shuffle(labels);
+            const aLeftLabel = permA[0];
+            const aRightLabel = permA[1];
+            const aMulLabel = permA[2];
+            const aAddLabel = permA[3];
+
+            const permB = rng.shuffle(labels);
+            const bCubeLabel = permB[0];
+            const bMulLeftLabel = permB[1];
+            const bMulRightLabel = permB[2];
+            const bSubLabel = permB[3];
+
+            const rows = labels.map(name=>({name, val:mml(mmn(values[name]))}));
 
             const intro =
               `A cinema offers premium seats.<br>`+
@@ -1527,48 +1586,53 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               tableHtml(rows) +
               `<div style="height:8px"></div>`;
 
-            // (a) [2] 3 ops: (ticket + premium) × group + booking
             const aExpr = mml(mrowN(
-              mfencedN(mrowN(mmt("ticket price"), mmo("+"), mmt("premium extra"))),
+              mfencedN(mrowN(mmt(aLeftLabel), mmo("+"), mmt(aRightLabel))),
               mmo("×"),
-              mmt("group size"),
+              mmt(aMulLabel),
               mmo("+"),
-              mmt("booking fee")
+              mmt(aAddLabel)
             ));
 
-            // (b) [3] 4 ops max: service³ + ticket×group − voucher  (NO double brackets)
-            const serviceCube = msupN(mmt("service charge"), 3);
+            const bCube = msupN(mmt(bCubeLabel), 3);
             const bExpr = mml(mrowN(
-              serviceCube,
+              bCube,
               mmo("+"),
-              mmt("ticket price"), mmo("×"), mmt("group size"),
+              mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel),
               mmo("−"),
-              mmt("voucher discount")
+              mmt(bSubLabel)
             ));
 
-            const aAns = (ticket + premium)*group + booking;
-            const bAns = (service*service*service + (ticket*group)) - voucher;
+            const aAns = (values[aLeftLabel] + values[aRightLabel]) * values[aMulLabel] + values[aAddLabel];
+            const bAns = (values[bCubeLabel]**3) + (values[bMulLeftLabel]*values[bMulRightLabel]) - values[bSubLabel];
 
             return Q([
               makePart("n10_13a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
               makePart("n10_13b", workOutLine("(b) ", bExpr, 3), 3, bAns),
             ]);
           } else {
-            const ticket = dec(6,15,2);
-            const premium = dec(1,6,2);
-            const booking = dec(1,6,2);
-            const voucher = dec(1,15,2);
-            const group = dec(2,8,1);
-            const service = dec(1.5,4.5,2);
+            const values = {
+              "Ticket price": dec(6,15,2).v,
+              "Premium extra": dec(1,6,2).v,
+              "Booking fee": dec(1,6,2).v,
+              "Voucher discount": dec(1,15,2).v,
+              "Group size": dec(2,8,1).v,
+              "Service charge": dec(1.5,4.5,2).v
+            };
 
-            const rows = [
-              {name:"Ticket price", val:mml(mmn(ticket.s))},
-              {name:"Premium extra", val:mml(mmn(premium.s))},
-              {name:"Booking fee", val:mml(mmn(booking.s))},
-              {name:"Voucher discount", val:mml(mmn(voucher.s))},
-              {name:"Group size", val:mml(mmn(group.s))},
-              {name:"Service charge", val:mml(mmn(service.s))}
-            ];
+            const permA = rng.shuffle(labels);
+            const aLeftLabel = permA[0];
+            const aRightLabel = permA[1];
+            const aMulLabel = permA[2];
+            const aAddLabel = permA[3];
+
+            const permB = rng.shuffle(labels);
+            const bCubeLabel = permB[0];
+            const bMulLeftLabel = permB[1];
+            const bMulRightLabel = permB[2];
+            const bSubLabel = permB[3];
+
+            const rows = labels.map(name=>({name, val:mml(mmn(values[name].toFixed((name==="Group size") ? 1 : 2)))}));
 
             const intro =
               `A cinema offers premium seats.<br>`+
@@ -1578,24 +1642,24 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               `<div style="height:8px"></div>`;
 
             const aExpr = mml(mrowN(
-              mfencedN(mrowN(mmt("ticket price"), mmo("+"), mmt("premium extra"))),
+              mfencedN(mrowN(mmt(aLeftLabel), mmo("+"), mmt(aRightLabel))),
               mmo("×"),
-              mmt("group size"),
+              mmt(aMulLabel),
               mmo("+"),
-              mmt("booking fee")
+              mmt(aAddLabel)
             ));
 
-            const serviceCube = msupN(mmt("service charge"), 3);
+            const bCube = msupN(mmt(bCubeLabel), 3);
             const bExpr = mml(mrowN(
-              serviceCube,
+              bCube,
               mmo("+"),
-              mmt("ticket price"), mmo("×"), mmt("group size"),
+              mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel),
               mmo("−"),
-              mmt("voucher discount")
+              mmt(bSubLabel)
             ));
 
-            const aAns = (ticket.v + premium.v)*group.v + booking.v;
-            const bAns = (service.v**3 + (ticket.v*group.v)) - voucher.v;
+            const aAns = (values[aLeftLabel] + values[aRightLabel]) * values[aMulLabel] + values[aAddLabel];
+            const bAns = (values[bCubeLabel]**3) + (values[bMulLeftLabel]*values[bMulRightLabel]) - values[bSubLabel];
 
             return Q([
               makePart("n10_13a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
@@ -1607,23 +1671,37 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
         // Scenario 2 (table + CUBE ROOTING) — MIX brackets 50% (overall mark-5 mix stays ~50/50)
         if(scenario===2){
           const withBrackets = coin();
+          const aLabels = ["Start", "Rise", "Fall", "Extra drop"];
+          const bPool = ["Start", "Rise", "Fall", "Extra drop", "Hours"];
+
           if(!isCalc){
-            const start = -rng.int(2,10);
-            const rise = rng.int(5,12);
-            const fall = rng.int(2,10);
-            const extra = rng.int(1,6);
-            const hours = rng.int(2,6);
-            const sensorCubes = [8,27,64,125,216,343];
-            const sensor = rng.choice(sensorCubes);
-            const sensorRoot = Math.round(Math.cbrt(sensor));
+            const values = {
+              "Start": -rng.int(2,10),
+              "Rise": rng.int(5,12),
+              "Fall": rng.int(2,10),
+              "Extra drop": rng.int(1,6),
+              "Hours": rng.int(2,6),
+              "Sensor check": rng.choice([8,27,64,125,216,343])
+            };
+
+            const permA = rng.shuffle(aLabels);
+            const aAddLeftLabel = permA[0];
+            const aAddRightLabel = permA[1];
+            const aSubLeftLabel = permA[2];
+            const aSubRightLabel = permA[3];
+
+            const permB = rng.shuffle(bPool);
+            const bMulLeftLabel = permB[0];
+            const bMulRightLabel = permB[1];
+            const bSubLabel = permB[2];
 
             const rows = [
-              {name:"Start", val:mml(mmn(start))},
-              {name:"Rise", val:mml(mmn(rise))},
-              {name:"Fall", val:mml(mmn(fall))},
-              {name:"Extra drop", val:mml(mmn(extra))},
-              {name:"Hours", val:mml(mmn(hours))},
-              {name:"Sensor check", val:mml(mmn(sensor))}
+              {name:"Start", val:mml(mmn(values["Start"]))},
+              {name:"Rise", val:mml(mmn(values["Rise"]))},
+              {name:"Fall", val:mml(mmn(values["Fall"]))},
+              {name:"Extra drop", val:mml(mmn(values["Extra drop"]))},
+              {name:"Hours", val:mml(mmn(values["Hours"]))},
+              {name:"Sensor check", val:mml(mmn(values["Sensor check"]))}
             ];
 
             const intro =
@@ -1632,20 +1710,19 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               tableHtml(rows) +
               `<div style="height:8px"></div>`;
 
-            // (a) [2] 3 ops
             const aExpr = withBrackets
-              ? mml(mrowN(mfencedN(mrowN(mmt("start"), mmo("+"), mmt("rise"))), mmo("−"), mmt("fall"), mmo("−"), mmt("extra drop")))
-              : mml(mrowN(mmt("start"), mmo("+"), mmt("rise"), mmo("−"), mmt("fall"), mmo("−"), mmt("extra drop")));
+              ? mml(mrowN(mfencedN(mrowN(mmt(aAddLeftLabel), mmo("+"), mmt(aAddRightLabel))), mmo("−"), mmt(aSubLeftLabel), mmo("−"), mmt(aSubRightLabel)))
+              : mml(mrowN(mmt(aAddLeftLabel), mmo("+"), mmt(aAddRightLabel), mmo("−"), mmt(aSubLeftLabel), mmo("−"), mmt(aSubRightLabel)));
 
-            // (b) [3] 4 ops max
-            const riseHours = mrowN(mmt("rise"), mmo("×"), mmt("hours"));
-            const cbrt = mrootN(mmt("sensor check"), mmn(3));
+            const riseHours = mrowN(mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel));
+            const cbrt = mrootN(mmt("Sensor check"), mmn(3));
             const bExpr = withBrackets
-              ? mml(mrowN(mfencedN(riseHours), mmo("+"), cbrt, mmo("−"), mmt("fall")))
-              : mml(mrowN(riseHours, mmo("+"), cbrt, mmo("−"), mmt("fall")));
+              ? mml(mrowN(mfencedN(riseHours), mmo("+"), cbrt, mmo("−"), mmt(bSubLabel)))
+              : mml(mrowN(riseHours, mmo("+"), cbrt, mmo("−"), mmt(bSubLabel)));
 
-            const aAns = start + rise - fall - extra;
-            const bAns = (rise*hours) + sensorRoot - fall;
+            const sensorRoot = Math.round(Math.cbrt(values["Sensor check"]));
+            const aAns = values[aAddLeftLabel] + values[aAddRightLabel] - values[aSubLeftLabel] - values[aSubRightLabel];
+            const bAns = (values[bMulLeftLabel]*values[bMulRightLabel]) + sensorRoot - values[bSubLabel];
 
             return Q([
               makePart("n10_14a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
@@ -1653,22 +1730,34 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
             ]);
           } else {
             const startRaw = dec(2,10,1);
-            const start = {v: -startRaw.v, s: ("-" + startRaw.s)};
-            const rise = dec(5,12,2);
-            const fall = dec(2,10,2);
-            const extra = dec(1,6,2);
-            const hours = dec(2,6,1);
+            const sensor = cubeFromRoot(2.5, 6.5, 1);
+            const values = {
+              "Start": -startRaw.v,
+              "Rise": dec(5,12,2).v,
+              "Fall": dec(2,10,2).v,
+              "Extra drop": dec(1,6,2).v,
+              "Hours": dec(2,6,1).v,
+              "Sensor check": sensor.rad
+            };
 
-            const sensor = cubeFromRoot(2.5, 6.5, 1); // gives radStr with 3 dp
-            const sensorVal = {v: sensor.rad, s: sensor.radStr};
+            const permA = rng.shuffle(aLabels);
+            const aAddLeftLabel = permA[0];
+            const aAddRightLabel = permA[1];
+            const aSubLeftLabel = permA[2];
+            const aSubRightLabel = permA[3];
+
+            const permB = rng.shuffle(bPool);
+            const bMulLeftLabel = permB[0];
+            const bMulRightLabel = permB[1];
+            const bSubLabel = permB[2];
 
             const rows = [
-              {name:"Start", val:mml(mmn(start.s))},
-              {name:"Rise", val:mml(mmn(rise.s))},
-              {name:"Fall", val:mml(mmn(fall.s))},
-              {name:"Extra drop", val:mml(mmn(extra.s))},
-              {name:"Hours", val:mml(mmn(hours.s))},
-              {name:"Sensor check", val:mml(mmn(sensorVal.s))}
+              {name:"Start", val:mml(mmn(values["Start"].toFixed(1)))},
+              {name:"Rise", val:mml(mmn(values["Rise"].toFixed(2)))},
+              {name:"Fall", val:mml(mmn(values["Fall"].toFixed(2)))},
+              {name:"Extra drop", val:mml(mmn(values["Extra drop"].toFixed(2)))},
+              {name:"Hours", val:mml(mmn(values["Hours"].toFixed(1)))},
+              {name:"Sensor check", val:mml(mmn(sensor.radStr))}
             ];
 
             const intro =
@@ -1678,17 +1767,17 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               `<div style="height:8px"></div>`;
 
             const aExpr = withBrackets
-              ? mml(mrowN(mfencedN(mrowN(mmt("start"), mmo("+"), mmt("rise"))), mmo("−"), mmt("fall"), mmo("−"), mmt("extra drop")))
-              : mml(mrowN(mmt("start"), mmo("+"), mmt("rise"), mmo("−"), mmt("fall"), mmo("−"), mmt("extra drop")));
+              ? mml(mrowN(mfencedN(mrowN(mmt(aAddLeftLabel), mmo("+"), mmt(aAddRightLabel))), mmo("−"), mmt(aSubLeftLabel), mmo("−"), mmt(aSubRightLabel)))
+              : mml(mrowN(mmt(aAddLeftLabel), mmo("+"), mmt(aAddRightLabel), mmo("−"), mmt(aSubLeftLabel), mmo("−"), mmt(aSubRightLabel)));
 
-            const riseHours = mrowN(mmt("rise"), mmo("×"), mmt("hours"));
-            const cbrt = mrootN(mmt("sensor check"), mmn(3));
+            const riseHours = mrowN(mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel));
+            const cbrt = mrootN(mmt("Sensor check"), mmn(3));
             const bExpr = withBrackets
-              ? mml(mrowN(mfencedN(riseHours), mmo("+"), cbrt, mmo("−"), mmt("fall")))
-              : mml(mrowN(riseHours, mmo("+"), cbrt, mmo("−"), mmt("fall")));
+              ? mml(mrowN(mfencedN(riseHours), mmo("+"), cbrt, mmo("−"), mmt(bSubLabel)))
+              : mml(mrowN(riseHours, mmo("+"), cbrt, mmo("−"), mmt(bSubLabel)));
 
-            const aAns = start.v + rise.v - fall.v - extra.v;
-            const bAns = (rise.v*hours.v) + sensor.root - fall.v;
+            const aAns = values[aAddLeftLabel] + values[aAddRightLabel] - values[aSubLeftLabel] - values[aSubRightLabel];
+            const bAns = (values[bMulLeftLabel]*values[bMulRightLabel]) + sensor.root - values[bSubLabel];
 
             return Q([
               makePart("n10_14a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
@@ -1699,25 +1788,32 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
 
         // Scenario 3 (table + SQRT + SQUARING) — NO brackets (keeps overall mix balanced)
         if(scenario===3){
-          if(!isCalc){
-            const pA = rng.int(2,6);
-            const hA = rng.int(2,8);
-            const pB = rng.int(2,6);
-            const hB = rng.int(2,10);
-            const saved = rng.int(1,10);
-            const meterSquares = [25,36,49,64,81,100,121,144,169,196];
-            const meter = rng.choice(meterSquares);
-            const loss = rng.int(2,8);
+          const labels = ["Power A", "Hours A", "Power B", "Hours B", "Saved energy", "Meter reading", "Loss factor"];
+          const nonRootLabels = ["Power A", "Hours A", "Power B", "Hours B", "Saved energy", "Loss factor"];
 
-            const rows = [
-              {name:"Power A", val:mml(mmn(pA))},
-              {name:"Hours A", val:mml(mmn(hA))},
-              {name:"Power B", val:mml(mmn(pB))},
-              {name:"Hours B", val:mml(mmn(hB))},
-              {name:"Saved energy", val:mml(mmn(saved))},
-              {name:"Meter reading", val:mml(mmn(meter))},
-              {name:"Loss factor", val:mml(mmn(loss))}
-            ];
+          if(!isCalc){
+            const meterSquares = [25,36,49,64,81,100,121,144,169,196];
+            const values = {
+              "Power A": rng.int(2,6),
+              "Hours A": rng.int(2,8),
+              "Power B": rng.int(2,6),
+              "Hours B": rng.int(2,10),
+              "Saved energy": rng.int(1,10),
+              "Meter reading": rng.choice(meterSquares),
+              "Loss factor": rng.int(2,8)
+            };
+
+            const permA = rng.shuffle(nonRootLabels);
+            const aMulLeftLabel = permA[0];
+            const aMulRightLabel = permA[1];
+
+            const permB = rng.shuffle(nonRootLabels);
+            const bMulLeftLabel = permB[0];
+            const bMulRightLabel = permB[1];
+            const bSubLabel = permB[2];
+            const bSquareLabel = permB[3];
+
+            const rows = labels.map(name=>({name, val:mml(mmn(values[name]))}));
 
             const intro =
               `An engineer models energy use from two devices.<br>`+
@@ -1726,49 +1822,57 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               tableHtml(rows) +
               `<div style="height:8px"></div>`;
 
-            // (a) [2] 3 ops: powerA×hoursA + √(meter)
             const aExpr = mml(mrowN(
-              mmt("power A"), mmo("×"), mmt("hours A"),
+              mmt(aMulLeftLabel), mmo("×"), mmt(aMulRightLabel),
               mmo("+"),
-              msqrtN(mmt("meter reading"))
+              msqrtN(mmt("Meter reading"))
             ));
 
-            // (b) [3] 4 ops: powerB×hoursB − saved + loss²
             const bExpr = mml(mrowN(
-              mmt("power B"), mmo("×"), mmt("hours B"),
+              mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel),
               mmo("−"),
-              mmt("saved energy"),
+              mmt(bSubLabel),
               mmo("+"),
-              msupN(mmt("loss factor"), 2)
+              msupN(mmt(bSquareLabel), 2)
             ));
 
-            const aAns = (pA*hA) + Math.sqrt(meter);
-            const bAns = (pB*hB) - saved + (loss*loss);
+            const aAns = (values[aMulLeftLabel]*values[aMulRightLabel]) + Math.sqrt(values["Meter reading"]);
+            const bAns = (values[bMulLeftLabel]*values[bMulRightLabel]) - values[bSubLabel] + (values[bSquareLabel]*values[bSquareLabel]);
 
             return Q([
               makePart("n10_15a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
               makePart("n10_15b", workOutLine("(b) ", bExpr, 3), 3, bAns),
             ]);
           } else {
-            const pA = dec(2,6,2);
-            const hA = dec(2,8,1);
-            const pB = dec(2,6,2);
-            const hB = dec(2,10,1);
-            const saved = dec(1,10,2);
+            const sq = squareFromRoot(6,14,1);
+            const values = {
+              "Power A": dec(2,6,2).v,
+              "Hours A": dec(2,8,1).v,
+              "Power B": dec(2,6,2).v,
+              "Hours B": dec(2,10,1).v,
+              "Saved energy": dec(1,10,2).v,
+              "Meter reading": sq.rad,
+              "Loss factor": dec(2,8,1).v
+            };
 
-            const sq = squareFromRoot(6,14,1); // exact square like 84.64
-            const meter = {v: sq.rad, s: sq.radStr};
+            const permA = rng.shuffle(nonRootLabels);
+            const aMulLeftLabel = permA[0];
+            const aMulRightLabel = permA[1];
 
-            const loss = dec(2,8,1);
+            const permB = rng.shuffle(nonRootLabels);
+            const bMulLeftLabel = permB[0];
+            const bMulRightLabel = permB[1];
+            const bSubLabel = permB[2];
+            const bSquareLabel = permB[3];
 
             const rows = [
-              {name:"Power A", val:mml(mmn(pA.s))},
-              {name:"Hours A", val:mml(mmn(hA.s))},
-              {name:"Power B", val:mml(mmn(pB.s))},
-              {name:"Hours B", val:mml(mmn(hB.s))},
-              {name:"Saved energy", val:mml(mmn(saved.s))},
-              {name:"Meter reading", val:mml(mmn(meter.s))},
-              {name:"Loss factor", val:mml(mmn(loss.s))}
+              {name:"Power A", val:mml(mmn(values["Power A"].toFixed(2)))},
+              {name:"Hours A", val:mml(mmn(values["Hours A"].toFixed(1)))},
+              {name:"Power B", val:mml(mmn(values["Power B"].toFixed(2)))},
+              {name:"Hours B", val:mml(mmn(values["Hours B"].toFixed(1)))},
+              {name:"Saved energy", val:mml(mmn(values["Saved energy"].toFixed(2)))},
+              {name:"Meter reading", val:mml(mmn(sq.radStr))},
+              {name:"Loss factor", val:mml(mmn(values["Loss factor"].toFixed(1)))}
             ];
 
             const intro =
@@ -1779,21 +1883,21 @@ function buildQuestion(topicCode, marksTotal, paperMode, rng){
               `<div style="height:8px"></div>`;
 
             const aExpr = mml(mrowN(
-              mmt("power A"), mmo("×"), mmt("hours A"),
+              mmt(aMulLeftLabel), mmo("×"), mmt(aMulRightLabel),
               mmo("+"),
-              msqrtN(mmt("meter reading"))
+              msqrtN(mmt("Meter reading"))
             ));
 
             const bExpr = mml(mrowN(
-              mmt("power B"), mmo("×"), mmt("hours B"),
+              mmt(bMulLeftLabel), mmo("×"), mmt(bMulRightLabel),
               mmo("−"),
-              mmt("saved energy"),
+              mmt(bSubLabel),
               mmo("+"),
-              msupN(mmt("loss factor"), 2)
+              msupN(mmt(bSquareLabel), 2)
             ));
 
-            const aAns = (pA.v*hA.v) + sq.root;
-            const bAns = (pB.v*hB.v) - saved.v + (loss.v*loss.v);
+            const aAns = (values[aMulLeftLabel]*values[aMulRightLabel]) + sq.root;
+            const bAns = (values[bMulLeftLabel]*values[bMulRightLabel]) - values[bSubLabel] + (values[bSquareLabel]*values[bSquareLabel]);
 
             return Q([
               makePart("n10_15a", intro + workOutLine("(a) ", aExpr, 2), 2, aAns),
@@ -3035,5 +3139,888 @@ calcSel.addEventListener("change", generateNew);
 initTopicDropdown();
 generateNew();
 </script>
+
+<script>
+(() => {
+  const N12_FIVE_A_NC = [[66, 25, 67, 6, 8, 12, 9, 18, 26, 22], [78, 37, 79, 6, 8, 15, 11, 22, 30, 26], [102, 61, 103, 6, 8, 3, 15, 30, 38, 34], [114, 73, 115, 6, 8, 6, 17, 34, 42, 38], [138, 97, 139, 6, 8, 12, 21, 19, 27, 23], [174, 133, 175, 6, 8, 12, 27, 25, 33, 29], [186, 145, 187, 6, 8, 15, 29, 27, 35, 31], [222, 181, 223, 6, 8, 6, 35, 33, 41, 37], [246, 205, 247, 6, 8, 12, 39, 37, 45, 41], [258, 217, 259, 6, 8, 15, 41, 39, 47, 43], [282, 241, 283, 6, 8, 12, 45, 43, 51, 47]].map(([target, low, high, multiple, tau, digitSum, primeThreshold, intervalLo, intervalHi, exampleFactor]) => ({target, low, high, multiple, tau, digitSum, primeThreshold, intervalLo, intervalHi, exampleFactor}));
+  const N12_FIVE_B_NC = [[44, 23, 45, 4, 8, 8, 18, 26, 22], [52, 31, 53, 4, 8, 7, 22, 30, 26], [68, 47, 69, 4, 8, 14, 13, 21, 17], [76, 55, 77, 4, 8, 13, 15, 23, 19], [92, 71, 93, 4, 8, 11, 19, 27, 23], [116, 95, 117, 4, 8, 8, 25, 33, 29], [124, 103, 125, 4, 8, 7, 27, 35, 31], [148, 127, 149, 4, 8, 13, 33, 41, 37]].map(([target, low, high, multiple, notMultiple, digitSum, intervalLo, intervalHi, exampleFactor]) => ({target, low, high, multiple, notMultiple, tau:6, digitSum, intervalLo, intervalHi, exampleFactor}));
+  const N12_FIVE_A_CALC = [[156, 115, 157, 6, 12, 12, 11, 35, 43, 39], [204, 163, 205, 6, 12, 6, 15, 30, 38, 34], [228, 187, 229, 6, 12, 12, 17, 34, 42, 38], [234, 193, 235, 6, 12, 9, 11, 35, 43, 39], [276, 235, 277, 6, 12, 15, 21, 42, 50, 46], [306, 265, 307, 6, 12, 9, 15, 30, 38, 34], [342, 301, 343, 6, 12, 9, 17, 34, 42, 38], [348, 307, 349, 6, 12, 15, 27, 54, 62, 58], [372, 331, 373, 6, 12, 12, 29, 27, 35, 31], [414, 373, 415, 6, 12, 9, 21, 42, 50, 46], [444, 403, 445, 6, 12, 12, 35, 33, 41, 37], [492, 451, 493, 6, 12, 15, 39, 37, 45, 41], [516, 475, 517, 6, 12, 12, 41, 39, 47, 43], [522, 481, 523, 6, 12, 9, 27, 54, 62, 58], [558, 517, 559, 6, 12, 18, 29, 27, 35, 31], [564, 523, 565, 6, 12, 15, 45, 43, 51, 47]].map(([target, low, high, multiple, tau, digitSum, primeThreshold, intervalLo, intervalHi, exampleFactor]) => ({target, low, high, multiple, tau, digitSum, primeThreshold, intervalLo, intervalHi, exampleFactor}));
+  const N12_FIVE_B_CALC = [[88, 57, 89, 8, 16, 16, 18, 26, 22], [104, 73, 105, 8, 16, 5, 22, 30, 26], [136, 105, 137, 8, 16, 10, 30, 38, 34], [152, 121, 153, 8, 16, 8, 34, 42, 38], [184, 153, 185, 8, 16, 13, 19, 27, 23], [232, 201, 233, 8, 16, 7, 25, 33, 29], [248, 217, 249, 8, 16, 14, 27, 35, 31], [296, 265, 297, 8, 16, 17, 33, 41, 37], [328, 297, 329, 8, 16, 13, 37, 45, 41], [344, 313, 345, 8, 16, 11, 39, 47, 43], [376, 345, 377, 8, 16, 16, 43, 51, 47]].map(([target, low, high, multiple, notMultiple, digitSum, intervalLo, intervalHi, exampleFactor]) => ({target, low, high, multiple, notMultiple, tau:8, digitSum, intervalLo, intervalHi, exampleFactor}));
+  const N12_FIVE_C_NC = [[84, 53, 85, 3, 4, 7, 14, 42, 21], [88, 57, 89, 4, 8, 3, 11, 44, 22], [90, 60, 92, 3, 5, 7, 15, 45, 30], [96, 65, 97, 3, 4, 7, 16, 48, 24], [126, 95, 127, 3, 7, 7, 14, 42, 21], [132, 101, 133, 3, 4, 7, 11, 44, 22], [135, 104, 136, 3, 5, 3, 27, 45, 27], [168, 137, 169, 3, 4, 12, 12, 42, 21], [176, 145, 177, 4, 8, 5, 11, 44, 22]].map(([target, low, high, commonA, commonB, minFactorCount, requiredFactor, exampleFactor1, exampleFactor2]) => ({target, low, high, commonA, commonB, minFactorCount, requiredFactor, exampleFactor1, exampleFactor2}));
+  const N12_FIVE_C_CALC = [[180, 168, 200, 3, 4, 14, 12, 45, 30], [184, 153, 185, 4, 8, 3, 23, 46, 23], [210, 179, 211, 3, 5, 11, 14, 42, 21], [220, 189, 221, 4, 5, 7, 11, 44, 22], [230, 199, 231, 5, 10, 3, 23, 46, 23], [240, 216, 248, 3, 4, 15, 12, 48, 24], [252, 240, 272, 3, 4, 16, 12, 42, 21], [264, 233, 265, 3, 4, 11, 11, 44, 22], [270, 240, 272, 3, 5, 11, 15, 45, 27], [276, 245, 277, 3, 4, 7, 23, 46, 23], [288, 264, 296, 3, 4, 13, 12, 48, 24], [294, 263, 295, 3, 7, 7, 14, 42, 21]].map(([target, low, high, commonA, commonB, minFactorCount, requiredFactor, exampleFactor1, exampleFactor2]) => ({target, low, high, commonA, commonB, minFactorCount, requiredFactor, exampleFactor1, exampleFactor2}));
+
+  const N12_PRIME_SQUARE_NC = [
+    {target:9, low:5, high:17},
+    {target:25, low:20, high:36},
+    {target:49, low:30, high:60}
+  ];
+  const N12_PRIME_SQUARE_CALC = [
+    {target:121, low:100, high:130},
+    {target:169, low:140, high:180},
+    {target:289, low:250, high:300}
+  ];
+  const N12_SQUARE_MULTIPLE_NC = [
+    {target:16, upper:50, multiple:16},
+    {target:36, upper:50, multiple:18},
+    {target:49, upper:80, multiple:7},
+    {target:64, upper:90, multiple:32},
+    {target:81, upper:100, multiple:27}
+  ];
+  const N12_SQUARE_MULTIPLE_CALC = [
+    {target:81, low:60, high:90, multiple:9},
+    {target:121, low:100, high:130, multiple:11},
+    {target:144, low:120, high:160, multiple:18},
+    {target:169, low:150, high:180, multiple:13},
+    {target:196, low:180, high:210, multiple:14},
+    {target:225, low:180, high:240, multiple:25}
+  ];
+  const N12_LIST_CONFIG_NC = [
+    {base:8, target:96, total:7, min:14, max:48},
+    {base:6, target:72, total:7, min:12, max:42},
+    {base:9, target:108, total:7, min:18, max:54},
+    {base:10, target:100, total:7, min:10, max:50}
+  ];
+  const N12_LIST_CONFIG_CALC = [
+    {base:12, target:180, total:8, min:24, max:72},
+    {base:14, target:210, total:8, min:28, max:84},
+    {base:15, target:240, total:8, min:30, max:90},
+    {base:16, target:240, total:8, min:32, max:96}
+  ];
+
+  const __origBuildQuestion = buildQuestion;
+  const __origMarkCurrent = markCurrent;
+  const __origRevealCurrent = revealCurrent;
+
+  function n12Unique(arr){
+    return [...new Set(arr)];
+  }
+  function n12Sorted(arr){
+    return arr.slice().sort((a,b)=>a-b);
+  }
+  function n12Sample(rng, arr, count){
+    const uniq = n12Unique(arr);
+    return rng.shuffle(uniq).slice(0, Math.min(count, uniq.length));
+  }
+  function n12PushUnique(arr, values){
+    for(const v of values){
+      if(!arr.includes(v)) arr.push(v);
+    }
+  }
+  function n12Factors(n){
+    const x = Math.abs(Math.trunc(Number(n)));
+    if(!Number.isFinite(x) || x < 1) return [];
+    const small = [];
+    const large = [];
+    for(let d=1; d*d<=x; d++){
+      if(x % d === 0){
+        small.push(d);
+        if(d*d !== x) large.push(x/d);
+      }
+    }
+    return small.concat(large.reverse());
+  }
+  function n12ProperFactors(n){
+    return n12Factors(n).filter(d=>d<n);
+  }
+  function n12NonTrivialFactors(n){
+    return n12Factors(n).filter(d=>d>1 && d<n);
+  }
+  function n12FactorCount(n){
+    return n12Factors(n).length;
+  }
+  function n12DigitSum(n){
+    return String(Math.abs(Math.trunc(Number(n)))).split("").reduce((s,ch)=>s+Number(ch),0);
+  }
+  function n12IsSquare(n){
+    const x = Math.abs(Math.trunc(Number(n)));
+    const r = Math.round(Math.sqrt(x));
+    return r*r === x;
+  }
+  function n12SmallestPrimeFactor(n){
+    const ks = Object.keys(factorise(Math.abs(Math.trunc(Number(n))))).map(Number).sort((a,b)=>a-b);
+    return ks[0] ?? NaN;
+  }
+  function n12GreatestPrimeFactor(n){
+    const ks = Object.keys(factorise(Math.abs(Math.trunc(Number(n))))).map(Number).sort((a,b)=>a-b);
+    return ks[ks.length-1] ?? NaN;
+  }
+  function n12StrictBetween(x, low, high){
+    return Number.isFinite(x) && x > low && x < high;
+  }
+  function n12ListHtml(arr){
+    return `From this list<br><b>${arr.join(", ")}</b>`;
+  }
+  function n12Bullets(lead, lines){
+    return `${lead}<ul style="margin:.35rem 0 .55rem 1.2rem">${lines.map(line=>`<li>${line}</li>`).join("")}</ul>`;
+  }
+  function n12Line(stem, marks){
+    return `<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap"><span>${stem}</span><span>{{INPUT}}</span><span class="endmark">[${marks}]</span></div>`;
+  }
+  function n12Block(intro, stem, marks){
+    const styledStem = String(stem).replace(/^\(([a-z])\)\s*/, (_, ch)=>`<b>(${ch})</b> `);
+    return `${intro ? `<div style="margin-bottom:.45rem">${intro}</div>` : ``}${n12Line(styledStem, marks)}`;
+  }
+  function n12ReadPart(part){
+    const got = getUserAnswerForPart(part);
+    return {
+      ok: got.ok,
+      val: got.ok ? got.val : null,
+      el: got.els && got.els[0] ? got.els[0] : null
+    };
+  }
+  function n12ScoreDistinctValid(partsSubset, predicate){
+    const used = new Set();
+    let score = 0;
+    for(const part of partsSubset){
+      const g = n12ReadPart(part);
+      const ok = g.ok && predicate(g.val) && !used.has(g.val);
+      markEl(g.el, ok);
+      if(ok){
+        used.add(g.val);
+        score += (part.marks || 1);
+      }
+    }
+    return score;
+  }
+  function n12ScoreFromSet(partsSubset, correctValues){
+    const remaining = new Map();
+    correctValues.forEach(v=>remaining.set(v, (remaining.get(v)||0)+1));
+    let score = 0;
+    for(const part of partsSubset){
+      const g = n12ReadPart(part);
+      let ok = false;
+      if(g.ok && remaining.get(g.val) > 0){
+        ok = true;
+        remaining.set(g.val, remaining.get(g.val)-1);
+        score += (part.marks || 1);
+      }
+      markEl(g.el, ok);
+    }
+    return score;
+  }
+  function n12Done(marksTotal, paperMode, parts, revealAnswers, customMark){
+    return {topicCode:"N12", marksTotal, paperMode, parts, revealAnswers, customMark};
+  }
+  function n12UniqueFactorTriples(n){
+    const facs = n12NonTrivialFactors(n);
+    const sums = new Map();
+    for(let i=0;i<facs.length;i++){
+      for(let j=i+1;j<facs.length;j++){
+        for(let k=j+1;k<facs.length;k++){
+          const triple = [facs[i], facs[j], facs[k]];
+          const sum = triple[0] + triple[1] + triple[2];
+          if(!sums.has(sum)) sums.set(sum, []);
+          sums.get(sum).push(triple);
+        }
+      }
+    }
+    const out = [];
+    for(const [sum, triples] of sums.entries()){
+      if(triples.length === 1){
+        out.push({sum:Number(sum), triple:n12Sorted(triples[0])});
+      }
+    }
+    return out;
+  }
+  function n12UniqueFactorPairs(n){
+    const facs = n12NonTrivialFactors(n);
+    const sums = new Map();
+    for(let i=0;i<facs.length;i++){
+      for(let j=i+1;j<facs.length;j++){
+        const pair = [facs[i], facs[j]];
+        const sum = pair[0] + pair[1];
+        if(!sums.has(sum)) sums.set(sum, []);
+        sums.get(sum).push(pair);
+      }
+    }
+    const out = [];
+    for(const [sum, pairs] of sums.entries()){
+      if(pairs.length === 1){
+        out.push({sum:Number(sum), pair:n12Sorted(pairs[0])});
+      }
+    }
+    return out;
+  }
+  function n12BuildQuestion(marksTotal, paperMode, rng){
+    const isCalc = paperMode === "calc";
+    const done = (parts, revealAnswers, customMark)=>n12Done(marksTotal, paperMode, parts, revealAnswers, customMark);
+
+    if(marksTotal === 1){
+      const scenario = rng.int(1,3);
+
+      if(scenario === 1){
+        const base = isCalc ? rng.choice([20,24,25,28,30,35,45]) : rng.choice([6,7,8,9,12]);
+        const threshold = isCalc ? rng.int(150,400) : rng.int(20,80);
+        const rep = base * (Math.floor(threshold / base) + 1);
+        const parts = [
+          partInteger("n12_1a", n12Block("", `Write down ONE multiple of <b>${base}</b> greater than <b>${threshold}</b>.`, 1), 1, rep)
+        ];
+        const reveal = [`One possible answer: <b>${rep}</b>`];
+        const customMark = ()=>{
+          const g = n12ReadPart(parts[0]);
+          const ok = g.ok && g.val > threshold && g.val % base === 0;
+          markEl(g.el, ok);
+          return {score: ok ? 1 : 0, max: 1};
+        };
+        return done(parts, reveal, customMark);
+      }
+
+      if(scenario === 2){
+        const divisor = isCalc ? rng.choice([9,11,12,15]) : rng.choice([6,7,8,9]);
+        const total = 6;
+        const minVal = isCalc ? 120 : 10;
+        const maxVal = isCalc ? 600 : 220;
+        const validPool = [];
+        const invalidPool = [];
+        for(let x=minVal; x<=maxVal; x++){
+          if(x % divisor === 0) validPool.push(x);
+          else invalidPool.push(x);
+        }
+        const valids = n12Sorted(n12Sample(rng, validPool, rng.int(1,2)));
+        const items = valids.slice();
+        while(items.length < total){
+          const x = rng.choice(invalidPool);
+          if(!items.includes(x)) items.push(x);
+        }
+        const list = n12Sorted(items);
+        const intro = n12ListHtml(list);
+        const parts = [
+          partInteger("n12_1b", n12Block(intro, `Write down ONE multiple of <b>${divisor}</b>.`, 1), 1, valids[0])
+        ];
+        const reveal = [`One possible answer: <b>${valids[0]}</b>`];
+        const customMark = ()=>{
+          const g = n12ReadPart(parts[0]);
+          const ok = g.ok && list.includes(g.val) && g.val % divisor === 0;
+          markEl(g.el, ok);
+          return {score: ok ? 1 : 0, max: 1};
+        };
+        return done(parts, reveal, customMark);
+      }
+
+      const target = isCalc ? rng.choice([420,540,630,720,840,900]) : rng.choice([60,72,84,90,96,100,120,140]);
+      const facPool = n12Factors(target).filter(x=>x>1 && x<target && x>=2 && x<=200);
+      const valids = n12Sorted(n12Sample(rng, facPool, rng.int(1,2)));
+      const items = valids.slice();
+      while(items.length < 6){
+        const x = rng.int(2, isCalc ? 120 : 80);
+        if(target % x !== 0 && !items.includes(x)) items.push(x);
+      }
+      const list = n12Sorted(items);
+      const intro = n12ListHtml(list);
+      const parts = [
+        partInteger("n12_1c", n12Block(intro, `Write down ONE factor of <b>${target}</b>.`, 1), 1, valids[0])
+      ];
+      const reveal = [`One possible answer: <b>${valids[0]}</b>`];
+      const customMark = ()=>{
+        const g = n12ReadPart(parts[0]);
+        const ok = g.ok && list.includes(g.val) && target % g.val === 0;
+        markEl(g.el, ok);
+        return {score: ok ? 1 : 0, max: 1};
+      };
+      return done(parts, reveal, customMark);
+    }
+
+    if(marksTotal === 2){
+      const scenario = rng.int(1,3);
+
+      if(scenario === 1){
+        const root = isCalc ? rng.choice([11,12,13,14,15,16,17,18]) : rng.choice([4,5,7,8,9]);
+        const square = root * root;
+        const prev = (root-1)*(root-1);
+        const next = (root+1)*(root+1);
+        const low = rng.int(prev + 1, square - 1);
+        const high = rng.int(square + 1, next - 1);
+        const intro = `Most numbers have an even number of factors.<br>There is one number between <b>${low}</b> and <b>${high}</b> that has an odd number of factors.`;
+        const parts = [
+          partInteger("n12_2a", n12Block(intro, `(a) Find this number.`, 1), 1, square),
+          partInteger("n12_2b", n12Block("", `(b) Write down the factor of this number that is greater than 1 and less than the number.`, 1), 1, root),
+        ];
+        const reveal = [
+          `<b>${square}</b>`,
+          `<b>${root}</b>`
+        ];
+        const customMark = ()=>{
+          let score = 0;
+          const a = n12ReadPart(parts[0]);
+          const b = n12ReadPart(parts[1]);
+          const aOk = a.ok && a.val === square;
+          const bOk = b.ok && b.val === root;
+          markEl(a.el, aOk);
+          markEl(b.el, bOk);
+          if(aOk) score += 1;
+          if(bOk) score += 1;
+          return {score, max: 2};
+        };
+        return done(parts, reveal, customMark);
+      }
+
+      const pairCfg = (!isCalc && scenario === 2) ? {a:3,b:5,total:9,min:25,max:190}
+                   : (!isCalc && scenario === 3) ? {a:4,b:6,total:8,min:12,max:80}
+                   : (isCalc && scenario === 2) ? {a:6,b:9,total:9,min:100,max:360}
+                   : {a:8,b:9,total:8,min:72,max:288};
+
+      const {a, b, total, min, max} = pairCfg;
+      const validPool = [];
+      const onlyAPool = [];
+      const onlyBPool = [];
+      const neitherPool = [];
+      for(let x=min; x<=max; x++){
+        const va = x % a === 0;
+        const vb = x % b === 0;
+        if(va && vb) validPool.push(x);
+        else if(va) onlyAPool.push(x);
+        else if(vb) onlyBPool.push(x);
+        else neitherPool.push(x);
+      }
+      const items = [];
+      n12PushUnique(items, n12Sample(rng, validPool, 3));
+      n12PushUnique(items, n12Sample(rng, onlyAPool, 2));
+      n12PushUnique(items, n12Sample(rng, onlyBPool, 2));
+      while(items.length < total){
+        const x = rng.choice(neitherPool);
+        if(!items.includes(x)) items.push(x);
+      }
+      const list = n12Sorted(items);
+      const valids = n12Sorted(list.filter(x=>x % a === 0 && x % b === 0));
+      const intro = n12ListHtml(list);
+      const parts = [
+        partInteger("n12_2c", n12Block(intro, `(a) Write down ONE number that is a multiple of both <b>${a}</b> and <b>${b}</b>.`, 1), 1, valids[0]),
+        partInteger("n12_2d", n12Block("", `(b) Write down a different number that is a multiple of both <b>${a}</b> and <b>${b}</b>.`, 1), 1, valids[1]),
+      ];
+      const reveal = [
+        `<b>${valids[0]}</b>`,
+        `<b>${valids[1]}</b>`
+      ];
+      const customMark = ()=>{
+        const score = n12ScoreDistinctValid(parts, v=>list.includes(v) && v % a === 0 && v % b === 0);
+        return {score, max: 2};
+      };
+      return done(parts, reveal, customMark);
+    }
+
+    if(marksTotal === 3){
+      const scenario = rng.int(1,3);
+
+      if(scenario === 1){
+        const pool = isCalc
+          ? [24,30,36,40,42,45,48,54,56,60,63,72,84]
+          : [18,20,24,28,30,36,40,42,45,48,50,54,56,60];
+        let chosen = null;
+        for(let tries=0; tries<200 && !chosen; tries++){
+          const n = rng.choice(pool);
+          const triples = n12UniqueFactorTriples(n);
+          if(triples.length){
+            const pick = rng.choice(triples);
+            chosen = {n, sum: pick.sum, triple: pick.triple};
+          }
+        }
+        if(!chosen){
+          chosen = {n:18, sum:17, triple:[2,6,9]};
+        }
+        const intro = `Three factors of <b>${chosen.n}</b> have a sum of <b>${chosen.sum}</b>.`;
+        const parts = [
+          partInteger("n12_3a", n12Block(intro, `(a) Write down one of these factors.`, 1), 1, chosen.triple[0]),
+          partInteger("n12_3b", n12Block("", `(b) Write down a different one of these factors.`, 1), 1, chosen.triple[1]),
+          partInteger("n12_3c", n12Block("", `(c) Write down the third factor.`, 1), 1, chosen.triple[2]),
+        ];
+        const reveal = chosen.triple.map(v=>`<b>${v}</b>`);
+        const customMark = ()=>{
+          const score = n12ScoreFromSet(parts, chosen.triple);
+          return {score, max: 3};
+        };
+        return done(parts, reveal, customMark);
+      }
+
+      if(scenario === 2){
+        const cfg = rng.choice(isCalc ? N12_PRIME_SQUARE_CALC : N12_PRIME_SQUARE_NC);
+        const root = Math.round(Math.sqrt(cfg.target));
+        const intro = `A number is between <b>${cfg.low}</b> and <b>${cfg.high}</b> and has exactly three factors.`;
+        const parts = [
+          partInteger("n12_3d", n12Block(intro, `(a) Find the number.`, 1), 1, cfg.target),
+          partInteger("n12_3e", n12Block("", `(b) Write down the factor of this number that is greater than 1 and less than the number.`, 1), 1, root),
+          partInteger("n12_3f", n12Block("", `(c) Write down how many factors this number has.`, 1), 1, 3),
+        ];
+        const reveal = [
+          `<b>${cfg.target}</b>`,
+          `<b>${root}</b>`,
+          `<b>3</b>`
+        ];
+        const customMark = ()=>{
+          let score = 0;
+          const a = n12ReadPart(parts[0]);
+          const b = n12ReadPart(parts[1]);
+          const c = n12ReadPart(parts[2]);
+
+          let aScore = 0;
+          let aExact = false;
+          if(a.ok && a.val === cfg.target){
+            aScore = 1;
+            aExact = true;
+          } else if(a.ok && n12IsSquare(a.val) && n12StrictBetween(a.val, cfg.low, cfg.high)){
+            aScore = 1;
+          }
+          markEl(a.el, aScore > 0);
+          score += aScore;
+
+          const bOk = aExact && b.ok && b.val === root;
+          markEl(b.el, bOk);
+          if(bOk) score += 1;
+
+          const cOk = c.ok && c.val === 3;
+          markEl(c.el, cOk);
+          if(cOk) score += 1;
+
+          return {score, max: 3};
+        };
+        return done(parts, reveal, customMark);
+      }
+
+      const cfg = rng.choice(isCalc ? N12_SQUARE_MULTIPLE_CALC : N12_SQUARE_MULTIPLE_NC);
+      const spf = n12SmallestPrimeFactor(cfg.target);
+      const greatestLess = n12ProperFactors(cfg.target).slice(-1)[0];
+      const intro = isCalc
+        ? `A number is between <b>${cfg.low}</b> and <b>${cfg.high}</b>.<br>It is a square number and also a multiple of <b>${cfg.multiple}</b>.`
+        : `A number less than <b>${cfg.upper}</b> is a square number and also a multiple of <b>${cfg.multiple}</b>.`;
+      const parts = [
+        partInteger("n12_3g", n12Block(intro, `(a) Find the number.`, 1), 1, cfg.target),
+        partInteger("n12_3h", n12Block("", `(b) Write down the smallest prime factor of this number.`, 1), 1, spf),
+        partInteger("n12_3i", n12Block("", `(c) Write down the greatest factor of this number that is less than the number.`, 1), 1, greatestLess),
+      ];
+      const reveal = [
+        `<b>${cfg.target}</b>`,
+        `<b>${spf}</b>`,
+        `<b>${greatestLess}</b>`
+      ];
+      const customMark = ()=>{
+        let score = 0;
+        const a = n12ReadPart(parts[0]);
+        const b = n12ReadPart(parts[1]);
+        const c = n12ReadPart(parts[2]);
+
+        const inRange = (v)=> isCalc ? n12StrictBetween(v, cfg.low, cfg.high) : (Number.isFinite(v) && v < cfg.upper);
+
+        let aScore = 0;
+        let aExact = false;
+        if(a.ok && a.val === cfg.target){
+          aScore = 1;
+          aExact = true;
+        } else if(a.ok && n12IsSquare(a.val) && inRange(a.val)){
+          aScore = 1;
+        }
+        markEl(a.el, aScore > 0);
+        score += aScore;
+
+        const bOk = aExact && b.ok && b.val === spf;
+        const cOk = aExact && c.ok && c.val === greatestLess;
+        markEl(b.el, bOk);
+        markEl(c.el, cOk);
+        if(bOk) score += 1;
+        if(cOk) score += 1;
+
+        return {score, max: 3};
+      };
+      return done(parts, reveal, customMark);
+    }
+
+    if(marksTotal === 4){
+      const scenario = rng.int(1,3);
+
+      if(scenario === 1){
+        const cfg = rng.choice(isCalc ? N12_LIST_CONFIG_CALC : N12_LIST_CONFIG_NC);
+        let list = [];
+        let validMultiples = [];
+        let validFactors = [];
+        for(let tries=0; tries<300; tries++){
+          const multPool = [];
+          const factorPool = [];
+          const neitherPool = [];
+          for(let x=cfg.min; x<=cfg.max; x++){
+            const isMult = x % cfg.base === 0;
+            const isFactor = cfg.target % x === 0;
+            if(isMult) multPool.push(x);
+            if(isFactor) factorPool.push(x);
+            if(!isMult && !isFactor) neitherPool.push(x);
+          }
+          const items = [];
+          n12PushUnique(items, n12Sample(rng, multPool, 3));
+          n12PushUnique(items, n12Sample(rng, factorPool, 3));
+          while(items.length < cfg.total){
+            const x = rng.choice(neitherPool.concat(multPool).concat(factorPool));
+            if(!items.includes(x)) items.push(x);
+          }
+          list = n12Sorted(items);
+          validMultiples = n12Sorted(list.filter(x=>x % cfg.base === 0));
+          validFactors = n12Sorted(list.filter(x=>cfg.target % x === 0));
+          if(validMultiples.length >= 2 && validFactors.length >= 2) break;
+        }
+
+        const intro = `From the list below<br><b>${list.join(", ")}</b>`;
+        const parts = [
+          partInteger("n12_4a", n12Block(intro, `(a) Write down ONE number that is a multiple of <b>${cfg.base}</b>.`, 1), 1, validMultiples[0]),
+          partInteger("n12_4b", n12Block("", `(b) Write down a different number that is a multiple of <b>${cfg.base}</b>.`, 1), 1, validMultiples[1]),
+          partInteger("n12_4c", n12Block("", `(c) Write down ONE number that is a factor of <b>${cfg.target}</b>.`, 1), 1, validFactors[0]),
+          partInteger("n12_4d", n12Block("", `(d) Write down a different number that is a factor of <b>${cfg.target}</b>.`, 1), 1, validFactors[1]),
+        ];
+        const reveal = [
+          `<b>${validMultiples[0]}</b>`,
+          `<b>${validMultiples[1]}</b>`,
+          `<b>${validFactors[0]}</b>`,
+          `<b>${validFactors[1]}</b>`
+        ];
+        const customMark = ()=>{
+          let score = 0;
+          score += n12ScoreDistinctValid(parts.slice(0,2), v=>list.includes(v) && v % cfg.base === 0);
+          score += n12ScoreDistinctValid(parts.slice(2,4), v=>list.includes(v) && cfg.target % v === 0);
+          return {score, max: 4};
+        };
+        return done(parts, reveal, customMark);
+      }
+
+      if(scenario === 2){
+        const pool = isCalc
+          ? [66,70,72,84,90,96,104,108,120,126]
+          : [42,44,45,50,52,54,60,63,70,72,84];
+        let cfg = null;
+        for(let tries=0; tries<300 && !cfg; tries++){
+          const n = rng.choice(pool);
+          const threshold = 10;
+          const bigFactors = n12Sorted(n12Factors(n).filter(x=>x > threshold));
+          const pairChoices = n12UniqueFactorPairs(n).filter(obj=>obj.pair[0] > 1 && obj.pair[1] > 1 && obj.sum >= 12 && obj.sum <= 60);
+          if(bigFactors.length >= 2 && pairChoices.length){
+            const pick = rng.choice(pairChoices);
+            cfg = {
+              n,
+              threshold,
+              bigFactors,
+              sumTarget: pick.sum,
+              pair: pick.pair
+            };
+          }
+        }
+        if(!cfg){
+          cfg = {n:42, threshold:10, bigFactors:[14,21,42], sumTarget:20, pair:[6,14]};
+        }
+
+        const parts = [
+          partInteger("n12_4e", n12Block("", `(a) Write down ONE factor of <b>${cfg.n}</b> that is greater than <b>${cfg.threshold}</b>.`, 1), 1, cfg.bigFactors[0]),
+          partInteger("n12_4f", n12Block("", `(b) Write down a different factor of <b>${cfg.n}</b> that is greater than <b>${cfg.threshold}</b>.`, 1), 1, cfg.bigFactors[1]),
+          partInteger("n12_4g", n12Block("", `(c) Write down ONE factor of <b>${cfg.n}</b> that adds with another factor of <b>${cfg.n}</b> to make <b>${cfg.sumTarget}</b>.`, 1), 1, cfg.pair[0]),
+          partInteger("n12_4h", n12Block("", `(d) Write down the other factor.`, 1), 1, cfg.pair[1]),
+        ];
+        const reveal = [
+          `<b>${cfg.bigFactors[0]}</b>`,
+          `<b>${cfg.bigFactors[1]}</b>`,
+          `<b>${cfg.pair[0]}</b>`,
+          `<b>${cfg.pair[1]}</b>`
+        ];
+        const customMark = ()=>{
+          let score = 0;
+          score += n12ScoreDistinctValid(parts.slice(0,2), v=>cfg.bigFactors.includes(v));
+          score += n12ScoreFromSet(parts.slice(2,4), cfg.pair);
+          return {score, max: 4};
+        };
+        return done(parts, reveal, customMark);
+      }
+
+      const cfg = rng.choice(isCalc ? N12_PRIME_SQUARE_CALC : N12_PRIME_SQUARE_NC);
+      const root = Math.round(Math.sqrt(cfg.target));
+      const multBase = isCalc ? rng.choice([11,12,13,14,15]) : rng.choice([7,8,9,11]);
+      const start = rng.int(1,2);
+      const mults = [start, start+1, start+2, start+3, start+4].map(m=>m*multBase);
+      const intruderIndex = rng.int(1,3);
+      let intruder = mults[intruderIndex];
+      const prev = mults[intruderIndex-1];
+      const next = mults[intruderIndex+1];
+      for(let tries=0; tries<200; tries++){
+        const candidate = rng.int(prev+1, next-1);
+        if(candidate % multBase !== 0){
+          intruder = candidate;
+          break;
+        }
+      }
+      const intruderList = mults.slice();
+      intruderList[intruderIndex] = intruder;
+      const introA = `A number has exactly 3 factors.<br>The number is between <b>${cfg.low}</b> and <b>${cfg.high}</b>.`;
+      const introC = `Peter wrote these as multiples of <b>${multBase}</b>:<br><b>${intruderList.join(", ")}</b>`;
+      const parts = [
+        partInteger("n12_4i", n12Block(introA, `(a) Find this number.`, 2), 2, cfg.target),
+        partInteger("n12_4j", n12Block("", `(b) Write down the factor of this number that is greater than 1 and less than the number.`, 1), 1, root),
+        partInteger("n12_4k", n12Block(introC, `(c) Write down the intruder.`, 1), 1, intruder),
+      ];
+      const reveal = [
+        `<b>${cfg.target}</b>`,
+        `<b>${root}</b>`,
+        `<b>${intruder}</b>`
+      ];
+      const customMark = ()=>{
+        let score = 0;
+        const a = n12ReadPart(parts[0]);
+        const b = n12ReadPart(parts[1]);
+        const c = n12ReadPart(parts[2]);
+
+        let aScore = 0;
+        let aExact = false;
+        if(a.ok && a.val === cfg.target){
+          aScore = 2;
+          aExact = true;
+        } else if(a.ok && n12IsSquare(a.val) && n12StrictBetween(a.val, cfg.low, cfg.high)){
+          aScore = 1;
+        }
+        markEl(a.el, aScore > 0);
+        score += aScore;
+
+        const bOk = aExact && b.ok && b.val === root;
+        const cOk = c.ok && c.val === intruder;
+        markEl(b.el, bOk);
+        markEl(c.el, cOk);
+        if(bOk) score += 1;
+        if(cOk) score += 1;
+
+        return {score, max: 4};
+      };
+      return done(parts, reveal, customMark);
+    }
+
+    if(marksTotal === 5){
+      const scenario = rng.int(1,3);
+
+      if(scenario === 1){
+        const cfg = rng.choice(isCalc ? N12_FIVE_A_CALC : N12_FIVE_A_NC);
+        const symbol = "N";
+        const actualFactorCount = n12FactorCount(cfg.target);
+        const actualGpf = n12GreatestPrimeFactor(cfg.target);
+        const intro = n12Bullets(
+          `A whole number <b>${symbol}</b> is between <b>${cfg.low}</b> and <b>${cfg.high}</b>.`,
+          [
+            `${symbol} is a multiple of <b>${cfg.multiple}</b>.`,
+            `${symbol} has exactly <b>${cfg.tau}</b> factors.`,
+            `The sum of the digits of ${symbol} is <b>${cfg.digitSum}</b>.`,
+            `One prime factor of ${symbol} is greater than <b>${cfg.primeThreshold}</b>.`
+          ]
+        );
+        const parts = [
+          partInteger("n12_5a", n12Block(intro, `(a) Write down the value of <b>${symbol}</b>.`, 1), 1, cfg.target),
+          partInteger("n12_5b", n12Block("", `(b) Write down the total number of factors of <b>${symbol}</b>.`, 1), 1, actualFactorCount),
+          partInteger("n12_5c", n12Block("", `(c) Write down the greatest prime factor of <b>${symbol}</b>.`, 1), 1, actualGpf),
+          partInteger("n12_5d", n12Block("", `(d) Write down one factor of <b>${symbol}</b> that is greater than <b>${cfg.intervalLo}</b> and less than <b>${cfg.intervalHi}</b>.`, 1), 1, cfg.exampleFactor),
+          partInteger("n12_5e", n12Block("", `(e) Write down the sum of the digits of <b>${symbol}</b>.`, 1), 1, cfg.digitSum),
+        ];
+        const reveal = [
+          `<b>${cfg.target}</b>`,
+          `<b>${actualFactorCount}</b>`,
+          `<b>${actualGpf}</b>`,
+          `One possible answer: <b>${cfg.exampleFactor}</b>`,
+          `<b>${cfg.digitSum}</b>`
+        ];
+        const customMark = ()=>{
+          let score = 0;
+          const a = n12ReadPart(parts[0]);
+          const ref = (a.ok && n12StrictBetween(a.val, cfg.low, cfg.high)) ? a.val : null;
+          const aOk = a.ok && a.val === cfg.target;
+          markEl(a.el, aOk);
+          if(aOk) score += 1;
+
+          const checks = [
+            {part: parts[1], test: (val, n)=> val === n12FactorCount(n)},
+            {part: parts[2], test: (val, n)=> val === n12GreatestPrimeFactor(n)},
+            {part: parts[3], test: (val, n)=> n % val === 0 && n12StrictBetween(val, cfg.intervalLo, cfg.intervalHi)},
+            {part: parts[4], test: (val, n)=> val === n12DigitSum(n)}
+          ];
+
+          for(const item of checks){
+            const g = n12ReadPart(item.part);
+            const ok = g.ok && (
+              item.test(g.val, cfg.target) ||
+              (ref !== null && item.test(g.val, ref))
+            );
+            markEl(g.el, ok);
+            if(ok) score += (item.part.marks || 1);
+          }
+
+          return {score, max: 5};
+        };
+        return done(parts, reveal, customMark);
+      }
+
+      if(scenario === 2){
+        const cfg = rng.choice(isCalc ? N12_FIVE_B_CALC : N12_FIVE_B_NC);
+        const symbol = "M";
+        const actualFactorCount = n12FactorCount(cfg.target);
+        const actualGpf = n12GreatestPrimeFactor(cfg.target);
+        const intro = n12Bullets(
+          `A whole number <b>${symbol}</b> is between <b>${cfg.low}</b> and <b>${cfg.high}</b>.`,
+          [
+            `${symbol} is a multiple of <b>${cfg.multiple}</b>.`,
+            `${symbol} is not a multiple of <b>${cfg.notMultiple}</b>.`,
+            `${symbol} has exactly <b>${cfg.tau}</b> factors.`,
+            `When you add the digits of ${symbol}, the total is <b>${cfg.digitSum}</b>.`
+          ]
+        );
+        const parts = [
+          partInteger("n12_5f", n12Block(intro, `(a) Write down the value of <b>${symbol}</b>.`, 1), 1, cfg.target),
+          partInteger("n12_5g", n12Block("", `(b) Write down the total number of factors of <b>${symbol}</b>.`, 1), 1, actualFactorCount),
+          partInteger("n12_5h", n12Block("", `(c) Write down the greatest prime factor of <b>${symbol}</b>.`, 1), 1, actualGpf),
+          partInteger("n12_5i", n12Block("", `(d) Write down a factor of <b>${symbol}</b>, other than 1 and ${symbol}, that is greater than <b>${cfg.intervalLo}</b> and less than <b>${cfg.intervalHi}</b>.`, 1), 1, cfg.exampleFactor),
+          partInteger("n12_5j", n12Block("", `(e) Write down the sum of the digits of <b>${symbol}</b>.`, 1), 1, cfg.digitSum),
+        ];
+        const reveal = [
+          `<b>${cfg.target}</b>`,
+          `<b>${actualFactorCount}</b>`,
+          `<b>${actualGpf}</b>`,
+          `One possible answer: <b>${cfg.exampleFactor}</b>`,
+          `<b>${cfg.digitSum}</b>`
+        ];
+        const customMark = ()=>{
+          let score = 0;
+          const a = n12ReadPart(parts[0]);
+          const ref = (a.ok && n12StrictBetween(a.val, cfg.low, cfg.high)) ? a.val : null;
+          const aOk = a.ok && a.val === cfg.target;
+          markEl(a.el, aOk);
+          if(aOk) score += 1;
+
+          const checks = [
+            {part: parts[1], test: (val, n)=> val === n12FactorCount(n)},
+            {part: parts[2], test: (val, n)=> val === n12GreatestPrimeFactor(n)},
+            {part: parts[3], test: (val, n)=> n % val === 0 && n12StrictBetween(val, cfg.intervalLo, cfg.intervalHi) && val !== 1 && val !== n},
+            {part: parts[4], test: (val, n)=> val === n12DigitSum(n)}
+          ];
+
+          for(const item of checks){
+            const g = n12ReadPart(item.part);
+            const ok = g.ok && (
+              item.test(g.val, cfg.target) ||
+              (ref !== null && item.test(g.val, ref))
+            );
+            markEl(g.el, ok);
+            if(ok) score += (item.part.marks || 1);
+          }
+
+          return {score, max: 5};
+        };
+        return done(parts, reveal, customMark);
+      }
+
+      const cfg = rng.choice(isCalc ? N12_FIVE_C_CALC : N12_FIVE_C_NC);
+      const symbol = "P";
+      const actualFactorCount = n12FactorCount(cfg.target);
+      const actualGpf = n12GreatestPrimeFactor(cfg.target);
+      const intro = n12Bullets(
+        `A whole number <b>${symbol}</b> is between <b>${cfg.low}</b> and <b>${cfg.high}</b>.`,
+        [
+          `${symbol} is a common multiple of <b>${cfg.commonA}</b> and <b>${cfg.commonB}</b>.`,
+          `${symbol} has more than <b>${cfg.minFactorCount}</b> factors.`,
+          `One of the factors of ${symbol} is <b>${cfg.requiredFactor}</b>.`,
+          `${symbol} is not a square number.`
+        ]
+      );
+      const parts = [
+        partInteger("n12_5k", n12Block(intro, `(a) Write down the value of <b>${symbol}</b>.`, 1), 1, cfg.target),
+        partInteger("n12_5l", n12Block("", `(b) Write down the total number of factors of <b>${symbol}</b>.`, 1), 1, actualFactorCount),
+        partInteger("n12_5m", n12Block("", `(c) Write down the greatest prime factor of <b>${symbol}</b>.`, 1), 1, actualGpf),
+        partInteger("n12_5n", n12Block("", `(d) Write down one factor of <b>${symbol}</b> that is greater than <b>40</b> and less than <b>50</b>.`, 1), 1, cfg.exampleFactor1),
+        partInteger("n12_5o", n12Block("", `(e) Write down one other factor of <b>${symbol}</b> that is greater than <b>20</b> and less than <b>40</b>.`, 1), 1, cfg.exampleFactor2),
+      ];
+      const reveal = [
+        `<b>${cfg.target}</b>`,
+        `<b>${actualFactorCount}</b>`,
+        `<b>${actualGpf}</b>`,
+        `One possible answer: <b>${cfg.exampleFactor1}</b>`,
+        `One possible answer: <b>${cfg.exampleFactor2}</b>`
+      ];
+      const customMark = ()=>{
+        let score = 0;
+        const a = n12ReadPart(parts[0]);
+        const ref = (a.ok && n12StrictBetween(a.val, cfg.low, cfg.high)) ? a.val : null;
+        const aOk = a.ok && a.val === cfg.target;
+        markEl(a.el, aOk);
+        if(aOk) score += 1;
+
+        const checks = [
+          {part: parts[1], test: (val, n)=> val === n12FactorCount(n)},
+          {part: parts[2], test: (val, n)=> val === n12GreatestPrimeFactor(n)},
+          {part: parts[3], test: (val, n)=> n % val === 0 && n12StrictBetween(val, 40, 50)},
+          {part: parts[4], test: (val, n)=> n % val === 0 && n12StrictBetween(val, 20, 40)}
+        ];
+
+        for(const item of checks){
+          const g = n12ReadPart(item.part);
+          const ok = g.ok && (
+            item.test(g.val, cfg.target) ||
+            (ref !== null && item.test(g.val, ref))
+          );
+          markEl(g.el, ok);
+          if(ok) score += (item.part.marks || 1);
+        }
+
+        return {score, max: 5};
+      };
+      return done(parts, reveal, customMark);
+    }
+
+    return __origBuildQuestion("N12", marksTotal, paperMode, rng);
+  }
+
+  buildQuestion = function(topicCode, marksTotal, paperMode, rng){
+    if(topicCode === "N12"){
+      return n12BuildQuestion(marksTotal, paperMode, rng);
+    }
+    return __origBuildQuestion(topicCode, marksTotal, paperMode, rng);
+  };
+
+  const checkBtnEl = document.getElementById("checkBtn");
+  if(checkBtnEl){
+    checkBtnEl.addEventListener("click", (e)=>{
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if(current && typeof current.customMark === "function"){
+        clearMarks();
+        const result = current.customMark() || {};
+        const fbEl = document.getElementById("fb");
+        const score = Number(result.score ?? 0);
+        const max = Number(result.max ?? (current ? current.marksTotal : 0));
+        if(fbEl){
+          fbEl.style.display = "block";
+          fbEl.className = "feedback " + (score===max ? "good" : (score>0 ? "" : "bad"));
+          fbEl.innerHTML = result.html || `<b>Score:</b> ${score} / ${max}`;
+        }
+      } else {
+        __origMarkCurrent();
+      }
+    }, true);
+  }
+
+  const revealBtnEl = document.getElementById("revealBtn");
+  if(revealBtnEl){
+    revealBtnEl.addEventListener("click", (e)=>{
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const answers = current && (typeof current.revealAnswers === "function" ? current.revealAnswers() : current.revealAnswers);
+      if(current && Array.isArray(answers)){
+        const fbEl = document.getElementById("fb");
+        if(fbEl){
+          fbEl.style.display = "block";
+          fbEl.className = "feedback";
+          fbEl.innerHTML = `
+            <div style="margin-top:10px">
+              <b>Answers:</b>
+              <ol style="margin:8px 0 0 18px">
+                ${answers.map(a=>`<li>${a}</li>`).join("")}
+              </ol>
+            </div>
+          `;
+        }
+      } else {
+        __origRevealCurrent();
+      }
+    }, true);
+  }
+
+  const topicEl = document.getElementById("topicSel");
+  if(topicEl && topicEl.value === "N12"){
+    generateNew();
+  }
+})();
+</script>
+
 </body>
 </html>
